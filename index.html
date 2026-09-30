@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fiido T2 - Débridage v2</title>
+  <style>
+    body {
+      background-color: #0d1117;
+      color: #f0f6fc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 16px;
+      padding: 24px;
+      max-width: 360px;
+      width: 100%;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      text-align: center;
+    }
+    .tag {
+      display: inline-block;
+      background: rgba(56, 139, 253, 0.15);
+      color: #58a6ff;
+      border: 1px solid rgba(56, 139, 253, 0.4);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    h1 {
+      font-size: 22px;
+      margin: 0 0 8px 0;
+      color: #ffffff;
+    }
+    p {
+      color: #8b949e;
+      font-size: 14px;
+      margin-bottom: 24px;
+    }
+    .btn-unlock {
+      background: linear-gradient(135deg, #238636 0%, #2ea043 100%);
+      color: #ffffff;
+      border: none;
+      border-radius: 12px;
+      padding: 16px 24px;
+      font-size: 16px;
+      font-weight: 700;
+      width: 100%;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(46, 160, 67, 0.3);
+      transition: transform 0.1s ease, background 0.2s ease;
+    }
+    .btn-unlock:active {
+      transform: scale(0.98);
+    }
+    .status-box {
+      margin-top: 20px;
+      padding: 12px;
+      background: #0d1117;
+      border-radius: 8px;
+      border: 1px solid #21262d;
+      font-family: monospace;
+      font-size: 13px;
+      color: #c9d1d9;
+      word-break: break-word;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <span class="tag">Nouvelle Version v2</span>
+    <h1>Fiido T2 Unlock</h1>
+    <p>Interface BLE mise à jour</p>
+
+    <button class="btn-unlock" onclick="debrider()">⚡ Débloquer la vitesse</button>
+
+    <div id="status" class="status-box">Statut : En attente...</div>
+  </div>
+
+  <script>
+    async function debrider() {
+      const statusDiv = document.getElementById('status');
+      statusDiv.style.color = '#58a6ff';
+      statusDiv.innerText = 'Recherche du vélo Fiido...';
+
+      try {
+        const device = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: [0xfe00, '0000fe00-0000-1000-8000-00805f9b34fb']
+        });
+
+        statusDiv.innerText = 'Connexion au vélo...';
+        const server = await device.gatt.connect();
+
+        statusDiv.innerText = 'Recherche des services...';
+        const services = await server.getPrimaryServices();
+
+        let targetChar = null;
+
+        for (const service of services) {
+          const characteristics = await service.getCharacteristics();
+          for (const char of characteristics) {
+            if (char.handle === 0x0010) {
+              targetChar = char;
+              break;
+            }
+          }
+          if (targetChar) break;
+        }
+
+        if (!targetChar) {
+          statusDiv.style.color = '#f85149';
+          statusDiv.innerText = 'Erreur: Handle 0x0010 non trouvé.';
+          return;
+        }
+
+        statusDiv.innerText = 'Envoi de la commande de débridage...';
+        const payload = new Uint8Array([0x46, 0x64, 0x55, 0x06, 0x2d, 0x5c]);
+        await targetChar.writeValue(payload);
+
+        statusDiv.style.color = '#3fb950';
+        statusDiv.innerText = '✅ Succès ! Commande envoyée.';
+      } catch (error) {
+        statusDiv.style.color = '#f85149';
+        statusDiv.innerText = 'Erreur : ' + error.message;
+      }
+    }
+  </script>
+
+</body>
+</html>
