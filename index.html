@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Fiido T2 - Débridage v2</title>
+  <title>Fiido T2 Unlock v2</title>
   <style>
     body {
       background-color: #0d1117;
       color: #f0f6fc;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -39,36 +39,23 @@
       font-weight: 600;
       margin-bottom: 12px;
       text-transform: uppercase;
-      letter-spacing: 1px;
     }
-    h1 {
-      font-size: 22px;
-      margin: 0 0 8px 0;
-      color: #ffffff;
-    }
-    p {
-      color: #8b949e;
-      font-size: 14px;
-      margin-bottom: 24px;
-    }
-    .btn-unlock {
-      background: linear-gradient(135deg, #238636 0%, #2ea043 100%);
-      color: #ffffff;
+    h1 { font-size: 22px; margin: 0 0 8px 0; color: #ffffff; }
+    p { color: #8b949e; font-size: 14px; margin-bottom: 20px; }
+    .btn {
       border: none;
       border-radius: 12px;
-      padding: 16px 24px;
+      padding: 16px 20px;
       font-size: 16px;
       font-weight: 700;
       width: 100%;
       cursor: pointer;
+      background: linear-gradient(135deg, #238636 0%, #2ea043 100%);
+      color: #ffffff;
       box-shadow: 0 4px 12px rgba(46, 160, 67, 0.3);
-      transition: transform 0.1s ease, background 0.2s ease;
-    }
-    .btn-unlock:active {
-      transform: scale(0.98);
     }
     .status-box {
-      margin-top: 20px;
+      margin-top: 15px;
       padding: 12px;
       background: #0d1117;
       border-radius: 8px;
@@ -83,11 +70,11 @@
 <body>
 
   <div class="card">
-    <span class="tag">Nouvelle Version v2</span>
+    <span class="tag">NOUVELLE VERSION V2</span>
     <h1>Fiido T2 Unlock</h1>
     <p>Interface BLE mise à jour</p>
 
-    <button class="btn-unlock" onclick="debrider()">⚡ Débloquer la vitesse</button>
+    <button class="btn" onclick="debrider()">⚡ Débloquer la vitesse</button>
 
     <div id="status" class="status-box">Statut : En attente...</div>
   </div>
@@ -96,48 +83,58 @@
     async function debrider() {
       const statusDiv = document.getElementById('status');
       statusDiv.style.color = '#58a6ff';
-      statusDiv.innerText = 'Recherche du vélo Fiido...';
+      statusDiv.innerText = 'Recherche du vélo...';
+
+      if (!navigator.bluetooth) {
+        statusDiv.style.color = '#f85149';
+        statusDiv.innerText = 'Erreur : Web-Bluetooth non supporté.';
+        return;
+      }
 
       try {
         const device = await navigator.bluetooth.requestDevice({
-          acceptAllDevices: true,
-          optionalServices: [0xfe00, '0000fe00-0000-1000-8000-00805f9b34fb']
+          acceptAllDevices: true
         });
 
-        statusDiv.innerText = 'Connexion au vélo...';
+        statusDiv.innerText = 'Connexion GATT...';
         const server = await device.gatt.connect();
 
         statusDiv.innerText = 'Recherche des services...';
         const services = await server.getPrimaryServices();
 
         let targetChar = null;
-
         for (const service of services) {
-          const characteristics = await service.getCharacteristics();
-          for (const char of characteristics) {
-            if (char.handle === 0x0010) {
-              targetChar = char;
-              break;
+          try {
+            const characteristics = await service.getCharacteristics();
+            for (const char of characteristics) {
+              if (char.handle === 0x0010) {
+                targetChar = char;
+                break;
+              }
             }
+          } catch (e) {
+            // Service non accessible, on continue la recherche
           }
           if (targetChar) break;
         }
 
         if (!targetChar) {
           statusDiv.style.color = '#f85149';
-          statusDiv.innerText = 'Erreur: Handle 0x0010 non trouvé.';
+          statusDiv.innerText = 'Erreur : Handle 0x0010 introuvable.';
           return;
         }
 
-        statusDiv.innerText = 'Envoi de la commande de débridage...';
+        statusDiv.innerText = 'Envoi de la commande...';
         const payload = new Uint8Array([0x46, 0x64, 0x55, 0x06, 0x2d, 0x5c]);
         await targetChar.writeValue(payload);
 
         statusDiv.style.color = '#3fb950';
-        statusDiv.innerText = '✅ Succès ! Commande envoyée.';
+        statusDiv.innerText = '✅ Débridage réussi !';
+
       } catch (error) {
         statusDiv.style.color = '#f85149';
-        statusDiv.innerText = 'Erreur : ' + error.message;
+        const msg = (error && error.message) ? error.message : String(error);
+        statusDiv.innerText = 'Erreur : ' + msg;
       }
     }
   </script>
