@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Fiido T2 Unlock v2</title>
+  <title>Fiido T2 Direct</title>
   <style>
     body {
       background-color: #0d1117;
@@ -27,18 +27,6 @@
       width: 100%;
       box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
       text-align: center;
-    }
-    .tag {
-      display: inline-block;
-      background: rgba(56, 139, 253, 0.15);
-      color: #58a6ff;
-      border: 1px solid rgba(56, 139, 253, 0.4);
-      padding: 4px 12px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 600;
-      margin-bottom: 12px;
-      text-transform: uppercase;
     }
     h1 { font-size: 22px; margin: 0 0 8px 0; color: #ffffff; }
     p { color: #8b949e; font-size: 14px; margin-bottom: 20px; }
@@ -70,68 +58,53 @@
 <body>
 
   <div class="card">
-    <span class="tag">NOUVELLE VERSION V2</span>
     <h1>Fiido T2 Unlock</h1>
-    <p>Interface BLE mise à jour</p>
+    <p>Envoi Direct Payload BLE</p>
 
     <button class="btn" onclick="debrider()">⚡ Débloquer la vitesse</button>
 
-    <div id="status" class="status-box">Statut : En attente...</div>
+    <div id="status" class="status-box">Statut : Prêt</div>
   </div>
 
   <script>
     async function debrider() {
       const statusDiv = document.getElementById('status');
       statusDiv.style.color = '#58a6ff';
-      statusDiv.innerText = 'Recherche du vélo...';
+      statusDiv.innerText = 'Connexion au vélo...';
 
-      const FE00_SERVICE = '0000fe00-0000-1000-8000-00805f9b34fb';
+      const SERVICE_UUID = '0000fe00-0000-1000-8000-00805f9b34fb';
+      const CHAR_UUID = '0000fe01-0000-1000-8000-00805f9b34fb';
 
       try {
         const device = await navigator.bluetooth.requestDevice({
-          filters: [{ services: [FE00_SERVICE] }],
-          optionalServices: [FE00_SERVICE]
+          acceptAllDevices: true,
+          optionalServices: [SERVICE_UUID, 0xfe00]
         });
 
         statusDiv.innerText = 'Connexion GATT...';
         const server = await device.gatt.connect();
 
-        statusDiv.innerText = 'Accès au service FE00...';
-        const service = await server.getPrimaryService(FE00_SERVICE);
+        statusDiv.innerText = 'Obtention du service...';
+        const service = await server.getPrimaryService(SERVICE_UUID);
 
-        statusDiv.innerText = 'Recherche de la caractéristique...';
-        const characteristics = await service.getCharacteristics();
-        
-        let targetChar = null;
-        for (const char of characteristics) {
-          if (char.properties.write || char.properties.writeWithoutResponse) {
-            targetChar = char;
-            break;
-          }
-        }
-
-        if (!targetChar) {
-          statusDiv.style.color = '#f85149';
-          statusDiv.innerText = 'Erreur : Caractéristique d\'écriture non trouvée.';
-          return;
-        }
+        statusDiv.innerText = 'Accès à la caractéristique...';
+        const characteristic = await service.getCharacteristic(CHAR_UUID);
 
         statusDiv.innerText = 'Envoi de la commande...';
         const payload = new Uint8Array([0x46, 0x64, 0x55, 0x06, 0x2d, 0x5c]);
         
-        if (targetChar.properties.writeWithoutResponse) {
-          await targetChar.writeValueWithoutResponse(payload);
-        } else {
-          await targetChar.writeValue(payload);
+        try {
+          await characteristic.writeValueWithoutResponse(payload);
+        } catch (e) {
+          await characteristic.writeValue(payload);
         }
 
         statusDiv.style.color = '#3fb950';
-        statusDiv.innerText = '✅ Débridage réussi !';
+        statusDiv.innerText = '✅ Commande envoyée !';
 
       } catch (error) {
         statusDiv.style.color = '#f85149';
-        const msg = (error && error.message) ? error.message : String(error);
-        statusDiv.innerText = 'Erreur : ' + msg;
+        statusDiv.innerText = 'Erreur : ' + (error.message || error);
       }
     }
   </script>
