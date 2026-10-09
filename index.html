@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Fiido T2 Direct</title>
+  <title>Fiido T2 Unlock</title>
   <style>
     body {
       background-color: #0d1117;
@@ -59,7 +59,7 @@
 
   <div class="card">
     <h1>Fiido T2 Unlock</h1>
-    <p>Envoi Direct Payload BLE</p>
+    <p>Connexion Directe UUID</p>
 
     <button class="btn" onclick="debrider()">⚡ Débloquer la vitesse</button>
 
@@ -70,27 +70,26 @@
     async function debrider() {
       const statusDiv = document.getElementById('status');
       statusDiv.style.color = '#58a6ff';
-      statusDiv.innerText = 'Connexion au vélo...';
+      statusDiv.innerText = 'Recherche du vélo...';
 
-      const SERVICE_UUID = '0000fe00-0000-1000-8000-00805f9b34fb';
-      const CHAR_UUID = '0000fe01-0000-1000-8000-00805f9b34fb';
+      const SERVICE_UUID = '00010203-0405-0607-0809-0a0b0c0dffe0';
+      const CHAR_UUID    = '00010203-0405-0607-0809-0a0b0c0dffe2';
 
       try {
         const device = await navigator.bluetooth.requestDevice({
-          acceptAllDevices: true,
-          optionalServices: [SERVICE_UUID, 0xfe00]
+          filters: [{ services: [SERVICE_UUID] }]
         });
 
         statusDiv.innerText = 'Connexion GATT...';
         const server = await device.gatt.connect();
 
-        statusDiv.innerText = 'Obtention du service...';
+        statusDiv.innerText = 'Accès au service...';
         const service = await server.getPrimaryService(SERVICE_UUID);
 
-        statusDiv.innerText = 'Accès à la caractéristique...';
+        statusDiv.innerText = 'Obtention de la caractéristique...';
         const characteristic = await service.getCharacteristic(CHAR_UUID);
 
-        statusDiv.innerText = 'Envoi de la commande...';
+        statusDiv.innerText = 'Envoi du payload...';
         const payload = new Uint8Array([0x46, 0x64, 0x55, 0x06, 0x2d, 0x5c]);
         
         try {
@@ -100,7 +99,7 @@
         }
 
         statusDiv.style.color = '#3fb950';
-        statusDiv.innerText = '✅ Commande envoyée !';
+        statusDiv.innerText = '✅ Commande transmise !';
 
       } catch (error) {
         statusDiv.style.color = '#f85149';
