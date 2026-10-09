@@ -85,48 +85,45 @@
       statusDiv.style.color = '#58a6ff';
       statusDiv.innerText = 'Recherche du vélo...';
 
-      if (!navigator.bluetooth) {
-        statusDiv.style.color = '#f85149';
-        statusDiv.innerText = 'Erreur : Web-Bluetooth non supporté.';
-        return;
-      }
+      const FE00_SERVICE = '0000fe00-0000-1000-8000-00805f9b34fb';
 
       try {
         const device = await navigator.bluetooth.requestDevice({
-          acceptAllDevices: true
+          filters: [{ services: [FE00_SERVICE] }],
+          optionalServices: [FE00_SERVICE]
         });
 
         statusDiv.innerText = 'Connexion GATT...';
         const server = await device.gatt.connect();
 
-        statusDiv.innerText = 'Recherche des services...';
-        const services = await server.getPrimaryServices();
+        statusDiv.innerText = 'Accès au service FE00...';
+        const service = await server.getPrimaryService(FE00_SERVICE);
 
+        statusDiv.innerText = 'Recherche de la caractéristique...';
+        const characteristics = await service.getCharacteristics();
+        
         let targetChar = null;
-        for (const service of services) {
-          try {
-            const characteristics = await service.getCharacteristics();
-            for (const char of characteristics) {
-              if (char.handle === 0x0010) {
-                targetChar = char;
-                break;
-              }
-            }
-          } catch (e) {
-            // Service non accessible, on continue la recherche
+        for (const char of characteristics) {
+          if (char.properties.write || char.properties.writeWithoutResponse) {
+            targetChar = char;
+            break;
           }
-          if (targetChar) break;
         }
 
         if (!targetChar) {
           statusDiv.style.color = '#f85149';
-          statusDiv.innerText = 'Erreur : Handle 0x0010 introuvable.';
+          statusDiv.innerText = 'Erreur : Caractéristique d\'écriture non trouvée.';
           return;
         }
 
         statusDiv.innerText = 'Envoi de la commande...';
         const payload = new Uint8Array([0x46, 0x64, 0x55, 0x06, 0x2d, 0x5c]);
-        await targetChar.writeValue(payload);
+        
+        if (targetChar.properties.writeWithoutResponse) {
+          await targetChar.writeValueWithoutResponse(payload);
+        } else {
+          await targetChar.writeValue(payload);
+        }
 
         statusDiv.style.color = '#3fb950';
         statusDiv.innerText = '✅ Débridage réussi !';
