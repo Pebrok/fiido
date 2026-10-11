@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fiido T2 Ultimate Diagnostic & Unblocker</title>
+    <title>Fiido T2 Bluefy Fix</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -65,12 +65,12 @@
 <body>
 
     <div class="container">
-        <h1>Fiido T2 Diagnostic Pro</h1>
-        <div class="version">Version : v2.2-pro-diagnostic</div>
+        <h1>Fiido T2 Bluefy Fix</h1>
+        <div class="version">Version : v2.3-bluefy-fix</div>
         
         <button id="runBtn">Lancer l'audit & le débridage</button>
         
-        <div id="log-box">[Prêt] En attente de connexion au vélo...</div>
+        <div id="log-box">[Prêt] En attente de connexion via Bluefy...</div>
         
         <button id="copyBtn" class="secondary">Copier les logs</button>
     </div>
@@ -81,110 +81,90 @@
 
         function log(message, type = 'info') {
             const time = new Date().toLocaleTimeString();
-            let color = '#7ee787'; // Vert
-            if (type === 'error') color = '#ff7b72'; // Rouge
-            if (type === 'warn') color = '#d29922';  // Orange
-            if (type === 'blue') color = '#58a6ff';  // Bleu
+            let color = '#7ee787';
+            if (type === 'error') color = '#ff7b72';
+            if (type === 'warn') color = '#d29922';
+            if (type === 'blue') color = '#58a6ff';
 
             logBox.innerHTML += `<div style="color: ${color};">[${time}] ${message}</div>`;
             logBox.scrollTop = logBox.scrollHeight;
         }
 
         copyBtn.addEventListener('click', () => {
-            const textToCopy = logBox.innerText;
-            navigator.clipboard.writeText(textToCopy).then(() => {
+            navigator.clipboard.writeText(logBox.innerText).then(() => {
                 const originalText = copyBtn.innerText;
-                copyBtn.innerText = "Copié dans le presse-papier !";
+                copyBtn.innerText = "Copié !";
                 setTimeout(() => { copyBtn.innerText = originalText; }, 2000);
-            }).catch(err => {
-                alert("Erreur lors de la copie : " + err);
             });
         });
 
         document.getElementById('runBtn').addEventListener('click', async () => {
             logBox.innerHTML = "";
-            log("=== DÉBUT DU DIAGNOSTIC T2 (v2.2) ===", "blue");
+            log("=== DÉBUT DU TEST BLUEFY (v2.3) ===", "blue");
 
             if (!navigator.bluetooth) {
-                log("ERREUR : Web Bluetooth non disponible. Utilisez Chrome ou Bluefy.", "error");
+                log("ERREUR : Web Bluetooth non disponible dans ce navigateur.", "error");
                 return;
             }
 
             try {
-                log("1. Recherche du périphérique 'Fiido'...");
+                log("1. Demande d'association Bluetooth (Filtrage requis pour Bluefy)...");
                 const device = await navigator.bluetooth.requestDevice({
-                    acceptAllDevices: true,
+                    filters: [{ namePrefix: 'Fiido' }],
                     optionalServices: [
-                        '0000ffe0-0000-1000-8000-00805f9b34fb', 
-                        'ffe0', 
-                        '0000ffe1-0000-1000-8000-00805f9b34fb',
-                        'ffe1'
+                        0xFFE0,
+                        0xFFE1,
+                        '0000ffe0-0000-1000-8000-00805f9b34fb',
+                        '0000ffe1-0000-1000-8000-00805f9b34fb'
                     ]
                 });
-                log(`Trouvé : ${device.name} [ID: ${device.id}]`, "blue");
+                log(`Appareil sélectionné : ${device.name}`, "blue");
 
                 log("2. Connexion au serveur GATT...");
                 const server = await device.gatt.connect();
-                log("Connecté avec succès au serveur GATT.", "blue");
+                log("Connecté au serveur GATT avec succès.", "blue");
 
-                log("3. Récupération de tous les services disponibles...");
+                log("3. Récupération des services disponibles...");
                 const services = await server.getPrimaryServices();
-                log(`Nombre de services trouvés : ${services.length}`, "blue");
+                log(`Services détectés : ${services.length}`, "blue");
 
                 let targetService = null;
                 for (let s of services) {
-                    log(` -> Service UUID trouvé : ${s.uuid}`, "blue");
-                    // On prend le premier service ou celui qui correspond au ffe0
-                    if (s.uuid.includes('ffe0') || !targetService) {
+                    log(` -> Service UUID: ${s.uuid}`, "blue");
+                    if (s.uuid.toLowerCase().includes('ffe0')) {
                         targetService = s;
                     }
                 }
 
-                if (!targetService) {
-                    throw new Error("Aucun service compatible trouvé sur le vélo.");
+                // Si le service ffe0 n'est pas trouvé explicitement, on prend le premier disponible
+                if (!targetService && services.length > 0) {
+                    targetService = services[0];
                 }
 
-                log(`Service sélectionné : ${targetService.uuid}`, "blue");
+                if (!targetService) {
+                    throw new Error("Impossible de trouver un service valide sur le vélo.");
+                }
 
-                log("4. Scan de toutes les caractéristiques du service...");
+                log("4. Récupération des caractéristiques...");
                 const characteristics = await targetService.getCharacteristics();
                 let targetChar = null;
 
                 characteristics.forEach(char => {
-                    let props = [];
-                    if (char.properties.read) props.push("READ");
-                    if (char.properties.write) props.push("WRITE");
-                    if (char.properties.writeWithoutResponse) props.push("WRITE_NO_RESP");
-                    if (char.properties.notify) props.push("NOTIFY");
-                    log(` -> Caractéristique: ${char.uuid} [ ${props.join(', ')} ]`, "blue");
-
-                    // On cherche en priorité la caractéristique ffe1 ou une qui permet l'écriture sans réponse
-                    if (char.uuid.includes('ffe1') || char.properties.writeWithoutResponse) {
+                    log(` -> Caractéristique: ${char.uuid} (Write: ${char.properties.write || char.properties.writeWithoutResponse})`, "blue");
+                    if (char.uuid.toLowerCase().includes('ffe1') || char.properties.writeWithoutResponse || char.properties.write) {
                         targetChar = char;
                     }
                 });
 
                 if (!targetChar && characteristics.length > 0) {
-                    targetChar = characteristics[0]; // Fallback sur la première dispo
+                    targetChar = characteristics[0];
                 }
 
                 if (!targetChar) {
                     throw new Error("Aucune caractéristique d'écriture trouvée.");
                 }
 
-                log(`Caractéristique cible validée : ${targetChar.uuid}`, "blue");
-
-                if (targetChar.properties.notify) {
-                    await targetChar.startNotifications();
-                    targetChar.addEventListener('characteristicvaluechanged', (e) => {
-                        const hex = [...new Uint8Array(e.target.value.buffer)]
-                            .map(b => b.toString(16).padStart(2, '0')).join(' ');
-                        log(`[REÇU DU VÉLO - RX] ${hex}`, "warn");
-                    });
-                    log("Écoute des notifications activée.", "blue");
-                }
-
-                log("5. Injection de la trame de débridage capturée (19 octets)...");
+                log("5. Envoi de la trame de 19 octets...", "blue");
                 const payload = new Uint8Array([
                     0x02, 0x41, 0x00, 0x0e, 0x00, 0x0a, 0x00, 0x04, 0x00, 
                     0x52, 0x10, 0x00, 0x46, 0x64, 0xaa, 0x01, 0x2c, 0x61, 0xc4
@@ -192,18 +172,14 @@
 
                 if (targetChar.properties.writeWithoutResponse) {
                     await targetChar.writeValueWithoutResponse(payload);
-                    log("Trame envoyée via WRITE_NO_RESP avec succès !", "blue");
-                } else if (targetChar.properties.write) {
-                    await targetChar.writeValueWithResponse(payload);
-                    log("Trame envoyée via WRITE (avec réponse) avec succès !", "blue");
                 } else {
-                    throw new Error("La caractéristique sélectionnée ne permet pas l'écriture.");
+                    await targetChar.writeValueWithResponse(payload);
                 }
 
-                log("=== AUDIT TERMINÉ AVEC SUCCÈS ===", "blue");
+                log("Succès : Trame injectée avec succès via Bluefy !", "blue");
 
             } catch (err) {
-                log(`ERREUR CRITIQUE : ${err.name} -> ${err.message}`, "error");
+                log(`ERREUR : ${err.name} -> ${err.message}`, "error");
             }
         });
     </script>
