@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fiido T2 Double Unblocker</title>
+    <title>Fiido T2 Speed Variant Test</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -65,10 +65,10 @@
 <body>
 
     <div class="container">
-        <h1>Fiido T2 Double Unblocker</h1>
-        <div class="version">Version : v2.4-double-send</div>
+        <h1>Fiido T2 Speed Test</h1>
+        <div class="version">Version : v2.5-speed-variant</div>
         
-        <button id="runBtn">Lancer le double débridage</button>
+        <button id="runBtn">Tester la variante 40 km/h</button>
         
         <div id="log-box">[Prêt] En attente de connexion...</div>
         
@@ -100,7 +100,7 @@
 
         document.getElementById('runBtn').addEventListener('click', async () => {
             logBox.innerHTML = "";
-            log("=== DÉBUT DU DOUBLE DÉBRIDAGE (v2.4) ===", "blue");
+            log("=== TEST VARIANTE VITESSE (v2.5) ===", "blue");
 
             if (!navigator.bluetooth) {
                 log("ERREUR : Web Bluetooth non disponible.", "error");
@@ -124,24 +124,17 @@
                 const targetChar = await service.getCharacteristic('00010203-0405-0607-0809-0a0b0c0dffe2');
                 log("Caractéristique FFE2 ciblée.", "blue");
 
+                // Payload modifié : remplacement de 0x2c (44) par 0x28 (40)
                 const payload = new Uint8Array([
                     0x02, 0x41, 0x00, 0x0e, 0x00, 0x0a, 0x00, 0x04, 0x00, 
-                    0x52, 0x10, 0x00, 0x46, 0x64, 0xaa, 0x01, 0x2c, 0x61, 0xc4
+                    0x52, 0x10, 0x00, 0x46, 0x64, 0xaa, 0x01, 0x28, 0x61, 0xc4
                 ]);
 
-                log("4. Envoi de la 1ère trame de débridage...", "blue");
+                log("4. Envoi de la trame modifiée...", "blue");
                 await targetChar.writeValueWithoutResponse(payload);
-                log("1ère trame envoyée avec succès.", "success");
+                log("Trame envoyée avec succès !", "success");
 
-                // Petite pause de 500ms entre les deux envois
-                log("Attente de 500ms...", "warn");
-                await new Promise(resolve => setTimeout(resolve, 500));
-
-                log("5. Envoi de la 2ème trame de confirmation...", "blue");
-                await targetChar.writeValueWithoutResponse(payload);
-                log("2ème trame envoyée avec succès !", "success");
-
-                log("=== PROCÉDURE TERMINÉE : Testez l'accélérateur ===", "blue");
+                log("=== TEST TERMINÉ : Vérifiez l'accélération ===", "blue");
 
             } catch (err) {
                 log(`ERREUR : ${err.name} -> ${err.message}`, "error");
