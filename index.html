@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fiido T2 Instant Double Unblocker</title>
+    <title>Fiido T2 Stable Double Unblocker</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -66,7 +66,7 @@
 
     <div class="container">
         <h1>Fiido T2 Pro Unblocker</h1>
-        <div class="version">Version : v2.6-instant-double</div>
+        <div class="version">Version : v2.7-stable</div>
         
         <button id="runBtn">Activer le débridage 40 km/h</button>
         
@@ -100,7 +100,7 @@
 
         document.getElementById('runBtn').addEventListener('click', async () => {
             logBox.innerHTML = "";
-            log("=== DÉBRIDAGE INSTANTANÉ EN DOUBLE (v2.6) ===", "blue");
+            log("=== DÉBRIDAGE v2.7 STABLE ===", "blue");
 
             if (!navigator.bluetooth) {
                 log("ERREUR : Web Bluetooth non disponible.", "error");
@@ -108,20 +108,20 @@
             }
 
             try {
-                log("1. Connexion au Fiido_T2...");
+                log("1. Sélection et connexion au Fiido_T2...");
                 const device = await navigator.bluetooth.requestDevice({
                     filters: [{ namePrefix: 'Fiido' }],
                     optionalServices: ['00010203-0405-0607-0809-0a0b0c0dffe0', 'ffe0']
                 });
                 
                 const server = await device.gatt.connect();
-                log("Connecté au serveur GATT.", "blue");
+                log("Connecté au serveur GATT avec succès.", "blue");
 
                 const service = await server.getPrimaryService('00010203-0405-0607-0809-0a0b0c0dffe0');
                 const targetChar = await service.getCharacteristic('00010203-0405-0607-0809-0a0b0c0dffe2');
                 const notifyChar = await service.getCharacteristic('00010203-0405-0607-0809-0a0b0c0dffe1');
 
-                // Activation des notifications pour écouter la réponse du contrôleur
+                // Activation des notifications
                 await notifyChar.startNotifications();
                 notifyChar.addEventListener('characteristicvaluechanged', (e) => {
                     const hex = [...new Uint8Array(e.target.value.buffer)]
@@ -134,17 +134,17 @@
                     0x52, 0x10, 0x00, 0x46, 0x64, 0xaa, 0x01, 0x2c, 0x61, 0xc4
                 ]);
 
-                log("2. Envoi de la 1ère validation...", "blue");
+                log("2. Envoi de la 1ère trame...", "blue");
                 await targetChar.writeValueWithoutResponse(payload);
                 
-                // Micro-pause ultra courte (50ms) pour coller au comportement humain rapide
-                await new Promise(resolve => setTimeout(resolve, 50);
+                // Pause de 50ms corrigée
+                await new Promise(resolve => setTimeout(resolve, 50));
 
-                log("3. Envoi immédiat de la 2ème validation...", "blue");
+                log("3. Envoi immédiat de la 2ème trame...", "blue");
                 await targetChar.writeValueWithoutResponse(payload);
                 
-                log("Succès : Double trame injectée en rafale !", "blue");
-                log("=== TESTEZ L'ACCÉLÉRATEUR SUR BÉQUILLE ===", "blue");
+                log("Succès : Double trame injectée !", "blue");
+                log("=== TESTEZ L'ACCÉLÉRATEUR ===", "blue");
 
             } catch (err) {
                 log(`ERREUR : ${err.name} -> ${err.message}`, "error");
