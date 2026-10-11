@@ -66,7 +66,7 @@
 
     <div class="container">
         <h1>Fiido T2 Diagnostic Pro</h1>
-        <div class="version">Version : v2.1-pro-diagnostic</div>
+        <div class="version">Version : v2.2-pro-diagnostic</div>
         
         <button id="runBtn">Lancer l'audit & le débridage</button>
         
@@ -90,7 +90,6 @@
             logBox.scrollTop = logBox.scrollHeight;
         }
 
-        // Fonction pour copier le contenu des logs dans le presse-papier
         copyBtn.addEventListener('click', () => {
             const textToCopy = logBox.innerText;
             navigator.clipboard.writeText(textToCopy).then(() => {
@@ -102,23 +101,25 @@
             });
         });
 
-        const SERVICE_UUID = "0000ffe0-0000-1000-8000-00805f9b34fb"; 
-        const CHARACTERISTIC_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb";
-
         document.getElementById('runBtn').addEventListener('click', async () => {
             logBox.innerHTML = "";
-            log("=== DÉBUT DU DIAGNOSTIC T2 (v2.1) ===", "blue");
+            log("=== DÉBUT DU DIAGNOSTIC T2 (v2.2) ===", "blue");
 
             if (!navigator.bluetooth) {
-                log("ERREUR : Web Bluetooth non disponible. Utilisez Chrome (Android/PC) ou Bluefy (iOS).", "error");
+                log("ERREUR : Web Bluetooth non disponible. Utilisez Chrome ou Bluefy.", "error");
                 return;
             }
 
             try {
                 log("1. Recherche du périphérique 'Fiido'...");
                 const device = await navigator.bluetooth.requestDevice({
-                    filters: [{ namePrefix: 'Fiido' }],
-                    optionalServices: [SERVICE_UUID]
+                    acceptAllDevices: true,
+                    optionalServices: [
+                        '0000ffe0-0000-1000-8000-00805f9b34fb', 
+                        'ffe0', 
+                        '0000ffe1-0000-1000-8000-00805f9b34fb',
+                        'ffe1'
+                    ]
                 });
                 log(`Trouvé : ${device.name} [ID: ${device.id}]`, "blue");
 
@@ -126,22 +127,52 @@
                 const server = await device.gatt.connect();
                 log("Connecté avec succès au serveur GATT.", "blue");
 
-                log("3. Récupération du service primaire (0ffe0)...");
-                const service = await server.getPrimaryService(SERVICE_UUID);
-                
+                log("3. Récupération de tous les services disponibles...");
+                const services = await server.getPrimaryServices();
+                log(`Nombre de services trouvés : ${services.length}`, "blue");
+
+                let targetService = null;
+                for (let s of services) {
+                    log(` -> Service UUID trouvé : ${s.uuid}`, "blue");
+                    // On prend le premier service ou celui qui correspond au ffe0
+                    if (s.uuid.includes('ffe0') || !targetService) {
+                        targetService = s;
+                    }
+                }
+
+                if (!targetService) {
+                    throw new Error("Aucun service compatible trouvé sur le vélo.");
+                }
+
+                log(`Service sélectionné : ${targetService.uuid}`, "blue");
+
                 log("4. Scan de toutes les caractéristiques du service...");
-                const characteristics = await service.getCharacteristics();
+                const characteristics = await targetService.getCharacteristics();
+                let targetChar = null;
+
                 characteristics.forEach(char => {
                     let props = [];
                     if (char.properties.read) props.push("READ");
                     if (char.properties.write) props.push("WRITE");
                     if (char.properties.writeWithoutResponse) props.push("WRITE_NO_RESP");
                     if (char.properties.notify) props.push("NOTIFY");
-                    log(` -> UUID: ${char.uuid} [ ${props.join(', ')} ]`, "blue");
+                    log(` -> Caractéristique: ${char.uuid} [ ${props.join(', ')} ]`, "blue");
+
+                    // On cherche en priorité la caractéristique ffe1 ou une qui permet l'écriture sans réponse
+                    if (char.uuid.includes('ffe1') || char.properties.writeWithoutResponse) {
+                        targetChar = char;
+                    }
                 });
 
-                log("5. Ciblage de la caractéristique principale (0ffe1 / Handle 0x0010)...");
-                const targetChar = await service.getCharacteristic(CHARACTERISTIC_UUID);
+                if (!targetChar && characteristics.length > 0) {
+                    targetChar = characteristics[0]; // Fallback sur la première dispo
+                }
+
+                if (!targetChar) {
+                    throw new Error("Aucune caractéristique d'écriture trouvée.");
+                }
+
+                log(`Caractéristique cible validée : ${targetChar.uuid}`, "blue");
 
                 if (targetChar.properties.notify) {
                     await targetChar.startNotifications();
@@ -153,7 +184,7 @@
                     log("Écoute des notifications activée.", "blue");
                 }
 
-                log("6. Injection de la trame de débridage capturée (19 octets)...");
+                log("5. Injection de la trame de débridage capturée (19 octets)...");
                 const payload = new Uint8Array([
                     0x02, 0x41, 0x00, 0x0e, 0x00, 0x0a, 0x00, 0x04, 0x00, 
                     0x52, 0x10, 0x00, 0x46, 0x64, 0xaa, 0x01, 0x2c, 0x61, 0xc4
@@ -166,20 +197,13 @@
                     await targetChar.writeValueWithResponse(payload);
                     log("Trame envoyée via WRITE (avec réponse) avec succès !", "blue");
                 } else {
-                    throw new Error("La caractéristique ne permet aucune méthode d'écriture !");
+                    throw new Error("La caractéristique sélectionnée ne permet pas l'écriture.");
                 }
 
-                log("=== AUDIT TERMINÉ : Observez la réaction du vélo ===", "blue");
+                log("=== AUDIT TERMINÉ AVEC SUCCÈS ===", "blue");
 
             } catch (err) {
                 log(`ERREUR CRITIQUE : ${err.name} -> ${err.message}`, "error");
-                if (err.name === 'NotFoundError') {
-                    log("Conseil : Aucun vélo sélectionné ou appairage annulé.", "warn");
-                } else if (err.name === 'SecurityError') {
-                    log("Conseil : Problème HTTPS ou permissions Bluetooth refusées par l'OS.", "warn");
-                } else {
-                    log("Conseil : Le vélo est peut-être déjà lié à l'application officielle en arrière-plan.", "warn");
-                }
             }
         });
     </script>
