@@ -2,140 +2,75 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fiido T2 Android-Like Burst</title>
+    <title>BlueFly - Débridage Fiido T2</title>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: #0d1117;
-            color: #c9d1d9;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 15px;
-            margin: 0;
-            box-sizing: border-box;
-        }
-        .container {
-            background: #161b22;
-            border: 1px solid #30363d;
-            padding: 1.2rem;
-            border-radius: 8px;
-            max-width: 480px;
-            width: 100%;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.6);
-        }
-        h1 { font-size: 1.2rem; margin-top: 0; color: #f0f6fc; text-align: center; }
-        .version { font-size: 0.75rem; color: #8b949e; margin-bottom: 1rem; text-align: center; }
-        button {
-            background-color: #238636;
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            font-size: 0.9rem;
-            border-radius: 6px;
-            cursor: pointer;
-            width: 100%;
-            margin-top: 8px;
-            font-weight: 600;
-        }
-        button:hover { background-color: #2ea043; }
-        button.secondary {
-            background-color: #21262d;
-            border: 1px solid #30363d;
-            color: #c9d1d9;
-        }
-        button.secondary:hover { background-color: #30363d; }
-        #log-box {
-            margin-top: 15px;
-            background: #010409;
-            border: 1px solid #30363d;
-            border-radius: 6px;
-            padding: 8px;
-            font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace;
-            font-size: 0.7rem;
-            height: 220px;
-            overflow-y: auto;
-            color: #7ee787;
-            word-break: break-all;
-            line-height: 1.4;
-        }
+        body { font-family: sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; background: #121212; color: #e0e0e0; }
+        h1 { color: #4CAF50; font-size: 24px; }
+        button { background: #4CAF50; color: white; border: none; padding: 12px 20px; font-size: 16px; cursor: pointer; border-radius: 4px; width: 100%; margin-top: 10px; }
+        button:hover { background: #45a049; }
+        #log { background: #1e1e1e; padding: 15px; border-radius: 4px; margin-top: 20px; font-family: monospace; height: 250px; overflow-y: auto; white-space: pre-wrap; font-size: 13px; border: 1px solid #333; }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <h1>Fiido T2 Pro Unblocker</h1>
-        <div class="version">Version : v2.9-android-burst</div>
-        
-        <button id="runBtn">Envoyer la rafale globale (40 km/h)</button>
-        
-        <div id="log-box">[Prêt] En attente de connexion...</div>
-        
-        <button id="copyBtn" class="secondary">Copier les logs</button>
-    </div>
+    <h1>BlueFly - Interface Fiido T2</h1>
+    <p>Connectez-vous au vélo pour initialiser le canal et configurer la vitesse.</p>
+    
+    <button id="connect">Scanner & Connecter au Vélo</button>
+    <button id="unlock" style="background: #ff5722; margin-top: 15px;">Envoyer la config (40 km/h)</button>
+
+    <div id="log">Prêt...</div>
 
     <script>
-        const logBox = document.getElementById('log-box');
-        const copyBtn = document.getElementById('copyBtn');
+        let bluetoothDevice;
+        let targetCharacteristic;
 
-        function log(message, type = 'info') {
-            const time = new Date().toLocaleTimeString();
-            let color = '#7ee787';
-            if (type === 'error') color = '#ff7b72';
-            if (type === 'warn') color = '#d29922';
-            if (type === 'blue') color = '#58a6ff';
-
-            logBox.innerHTML += `<div style="color: ${color};">[${time}] ${message}</div>`;
-            logBox.scrollTop = logBox.scrollHeight;
+        const logDiv = document.getElementById('log');
+        function log(message) {
+            logDiv.textContent += `\n${message}`;
+            logDiv.scrollTop = logDiv.scrollHeight;
         }
 
-        copyBtn.addEventListener('click', () => {
-            navigator.clipboard.writeText(logBox.innerText).then(() => {
-                const originalText = copyBtn.innerText;
-                copyBtn.innerText = "Copié !";
-                setTimeout(() => { copyBtn.innerText = originalText; }, 2000);
-            });
+        document.getElementById('connect').addEventListener('click', async () => {
+            try {
+                log('Recherche du Fiido T2...');
+                bluetoothDevice = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb'] // Service UART BLE standard souvent utilisé
+                });
+
+                log(`Connecté à : ${bluetoothDevice.name}`);
+                const server = await bluetoothDevice.gatt.connect();
+                const service = await server.getPrimaryService('0000ffe0-0000-1000-8000-00805f9b34fb');
+                
+                // Récupération de la caractéristique pour l'écriture/notifications
+                targetCharacteristic = await service.getCharacteristic('0000ffe1-0000-1000-8000-00805f9b34fb');
+                
+                // Étape indispensable vue dans votre capture : Activer les notifications (équivalent écriture 0x0001 sur le CCCD)
+                await targetCharacteristic.startNotifications();
+                targetCharacteristic.addEventListener('characteristicvaluechanged', (event) => {
+                    const value = new Uint8Array(event.target.value.buffer);
+                    log(`<< Reçu du vélo : ${Array.from(value).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' ')}`);
+                });
+
+                log('Canal ouvert et notifications activées avec succès.');
+            } catch (error) {
+                log(`Erreur : ${error}`);
+            }
         });
 
-        document.getElementById('runBtn').addEventListener('click', async () => {
-            logBox.innerHTML = "";
-            log("=== DÉBRIDAGE RAFALE ANDROID (v2.9) ===", "blue");
-
-            if (!navigator.bluetooth) {
-                log("ERREUR : Web Bluetooth non disponible.", "error");
+        document.getElementById('unlock').addEventListener('click', async () => {
+            if (!targetCharacteristic) {
+                log('Erreur : Aucun appareil connecté.');
                 return;
             }
-
             try {
-                log("1. Connexion au Fiido_T2...");
-                const device = await navigator.bluetooth.requestDevice({
-                    filters: [{ namePrefix: 'Fiido' }],
-                    optionalServices: ['00010203-0405-0607-0809-0a0b0c0dffe0', 'ffe0']
-                });
-                
-                const server = await device.gatt.connect();
-                log("Connecté au serveur GATT avec succès.", "blue");
-
-                const service = await server.getPrimaryService('00010203-0405-0607-0809-0a0b0c0dffe0');
-                const targetChar = await service.getCharacteristic('00010203-0405-0607-0809-0a0b0c0dffe2');
-
-                const payload = new Uint8Array([
-                    0x02, 0x41, 0x00, 0x0e, 0x00, 0x0a, 0x00, 0x04, 0x00, 
-                    0x52, 0x10, 0x00, 0x46, 0x64, 0xaa, 0x01, 0x2c, 0x61, 0xc4
-                ]);
-
-                log("2. Envoi de la séquence rapide (15 trames)...", "blue");
-                for (let i = 1; i <= 15; i++) {
-                    await targetChar.writeValueWithoutResponse(payload);
-                    log(`Trame ${i}/15 injectée`, "success");
-                    await new Promise(resolve => setTimeout(resolve, 30));
-                }
-                
-                log("=== OPÉRATION TERMINÉE : Testez l'accélération ===", "blue");
-
-            } catch (err) {
-                log(`ERREUR : ${err.name} -> ${err.message}`, "error");
+                // Trame de configuration de vitesse (40 km/h)
+                const command = new Uint8Array([0x53, 0x50, 0x44, 0x28, 0x0D]); 
+                await targetCharacteristic.writeValueWithoutResponse(command);
+                log('>> Trame de réglage (40 km/h) envoyée.');
+            } catch (error) {
+                log(`Erreur lors de l'envoi : ${error}`);
             }
         });
     </script>
