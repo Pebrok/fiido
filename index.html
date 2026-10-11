@@ -40,7 +40,12 @@
             font-weight: 600;
         }
         button:hover { background-color: #2ea043; }
-        button:disabled { background-color: #21262d; color: #484f58; cursor: not-allowed; }
+        button.secondary {
+            background-color: #21262d;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+        }
+        button.secondary:hover { background-color: #30363d; }
         #log-box {
             margin-top: 15px;
             background: #010409;
@@ -49,7 +54,7 @@
             padding: 8px;
             font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace;
             font-size: 0.7rem;
-            height: 240px;
+            height: 220px;
             overflow-y: auto;
             color: #7ee787;
             word-break: break-all;
@@ -61,19 +66,22 @@
 
     <div class="container">
         <h1>Fiido T2 Diagnostic Pro</h1>
-        <div class="version">Version : v2.0-pro-diagnostic</div>
+        <div class="version">Version : v2.1-pro-diagnostic</div>
         
         <button id="runBtn">Lancer l'audit & le débridage</button>
         
         <div id="log-box">[Prêt] En attente de connexion au vélo...</div>
+        
+        <button id="copyBtn" class="secondary">Copier les logs</button>
     </div>
 
     <script>
         const logBox = document.getElementById('log-box');
+        const copyBtn = document.getElementById('copyBtn');
 
         function log(message, type = 'info') {
             const time = new Date().toLocaleTimeString();
-            let color = '#7ee787'; // Vert par défaut
+            let color = '#7ee787'; // Vert
             if (type === 'error') color = '#ff7b72'; // Rouge
             if (type === 'warn') color = '#d29922';  // Orange
             if (type === 'blue') color = '#58a6ff';  // Bleu
@@ -82,13 +90,24 @@
             logBox.scrollTop = logBox.scrollHeight;
         }
 
-        // UUIDs standards identifiés
+        // Fonction pour copier le contenu des logs dans le presse-papier
+        copyBtn.addEventListener('click', () => {
+            const textToCopy = logBox.innerText;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                const originalText = copyBtn.innerText;
+                copyBtn.innerText = "Copié dans le presse-papier !";
+                setTimeout(() => { copyBtn.innerText = originalText; }, 2000);
+            }).catch(err => {
+                alert("Erreur lors de la copie : " + err);
+            });
+        });
+
         const SERVICE_UUID = "0000ffe0-0000-1000-8000-00805f9b34fb"; 
         const CHARACTERISTIC_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb";
 
         document.getElementById('runBtn').addEventListener('click', async () => {
             logBox.innerHTML = "";
-            log("=== DÉBUT DU DIAGNOSTIC T2 ===", "blue");
+            log("=== DÉBUT DU DIAGNOSTIC T2 (v2.1) ===", "blue");
 
             if (!navigator.bluetooth) {
                 log("ERREUR : Web Bluetooth non disponible. Utilisez Chrome (Android/PC) ou Bluefy (iOS).", "error");
@@ -124,7 +143,6 @@
                 log("5. Ciblage de la caractéristique principale (0ffe1 / Handle 0x0010)...");
                 const targetChar = await service.getCharacteristic(CHARACTERISTIC_UUID);
 
-                // Activer l'écoute des retours (notifications) si supporté
                 if (targetChar.properties.notify) {
                     await targetChar.startNotifications();
                     targetChar.addEventListener('characteristicvaluechanged', (e) => {
