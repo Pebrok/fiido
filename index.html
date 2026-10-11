@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fiido T2 Bluefy Fix</title>
+    <title>Fiido T2 Double Unblocker</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -65,12 +65,12 @@
 <body>
 
     <div class="container">
-        <h1>Fiido T2 Bluefy Fix</h1>
-        <div class="version">Version : v2.3-bluefy-fix</div>
+        <h1>Fiido T2 Double Unblocker</h1>
+        <div class="version">Version : v2.4-double-send</div>
         
-        <button id="runBtn">Lancer l'audit & le débridage</button>
+        <button id="runBtn">Lancer le double débridage</button>
         
-        <div id="log-box">[Prêt] En attente de connexion via Bluefy...</div>
+        <div id="log-box">[Prêt] En attente de connexion...</div>
         
         <button id="copyBtn" class="secondary">Copier les logs</button>
     </div>
@@ -100,83 +100,48 @@
 
         document.getElementById('runBtn').addEventListener('click', async () => {
             logBox.innerHTML = "";
-            log("=== DÉBUT DU TEST BLUEFY (v2.3) ===", "blue");
+            log("=== DÉBUT DU DOUBLE DÉBRIDAGE (v2.4) ===", "blue");
 
             if (!navigator.bluetooth) {
-                log("ERREUR : Web Bluetooth non disponible dans ce navigateur.", "error");
+                log("ERREUR : Web Bluetooth non disponible.", "error");
                 return;
             }
 
             try {
-                log("1. Demande d'association Bluetooth (Filtrage requis pour Bluefy)...");
+                log("1. Recherche du périphérique 'Fiido'...");
                 const device = await navigator.bluetooth.requestDevice({
                     filters: [{ namePrefix: 'Fiido' }],
-                    optionalServices: [
-                        0xFFE0,
-                        0xFFE1,
-                        '0000ffe0-0000-1000-8000-00805f9b34fb',
-                        '0000ffe1-0000-1000-8000-00805f9b34fb'
-                    ]
+                    optionalServices: ['00010203-0405-0607-0809-0a0b0c0dffe0', 'ffe0']
                 });
-                log(`Appareil sélectionné : ${device.name}`, "blue");
+                log(`Trouvé : ${device.name}`, "blue");
 
                 log("2. Connexion au serveur GATT...");
                 const server = await device.gatt.connect();
                 log("Connecté au serveur GATT avec succès.", "blue");
 
-                log("3. Récupération des services disponibles...");
-                const services = await server.getPrimaryServices();
-                log(`Services détectés : ${services.length}`, "blue");
+                log("3. Récupération du service et de la caractéristique d'écriture...");
+                const service = await server.getPrimaryService('00010203-0405-0607-0809-0a0b0c0dffe0');
+                const targetChar = await service.getCharacteristic('00010203-0405-0607-0809-0a0b0c0dffe2');
+                log("Caractéristique FFE2 ciblée.", "blue");
 
-                let targetService = null;
-                for (let s of services) {
-                    log(` -> Service UUID: ${s.uuid}`, "blue");
-                    if (s.uuid.toLowerCase().includes('ffe0')) {
-                        targetService = s;
-                    }
-                }
-
-                // Si le service ffe0 n'est pas trouvé explicitement, on prend le premier disponible
-                if (!targetService && services.length > 0) {
-                    targetService = services[0];
-                }
-
-                if (!targetService) {
-                    throw new Error("Impossible de trouver un service valide sur le vélo.");
-                }
-
-                log("4. Récupération des caractéristiques...");
-                const characteristics = await targetService.getCharacteristics();
-                let targetChar = null;
-
-                characteristics.forEach(char => {
-                    log(` -> Caractéristique: ${char.uuid} (Write: ${char.properties.write || char.properties.writeWithoutResponse})`, "blue");
-                    if (char.uuid.toLowerCase().includes('ffe1') || char.properties.writeWithoutResponse || char.properties.write) {
-                        targetChar = char;
-                    }
-                });
-
-                if (!targetChar && characteristics.length > 0) {
-                    targetChar = characteristics[0];
-                }
-
-                if (!targetChar) {
-                    throw new Error("Aucune caractéristique d'écriture trouvée.");
-                }
-
-                log("5. Envoi de la trame de 19 octets...", "blue");
                 const payload = new Uint8Array([
                     0x02, 0x41, 0x00, 0x0e, 0x00, 0x0a, 0x00, 0x04, 0x00, 
                     0x52, 0x10, 0x00, 0x46, 0x64, 0xaa, 0x01, 0x2c, 0x61, 0xc4
                 ]);
 
-                if (targetChar.properties.writeWithoutResponse) {
-                    await targetChar.writeValueWithoutResponse(payload);
-                } else {
-                    await targetChar.writeValueWithResponse(payload);
-                }
+                log("4. Envoi de la 1ère trame de débridage...", "blue");
+                await targetChar.writeValueWithoutResponse(payload);
+                log("1ère trame envoyée avec succès.", "success");
 
-                log("Succès : Trame injectée avec succès via Bluefy !", "blue");
+                // Petite pause de 500ms entre les deux envois
+                log("Attente de 500ms...", "warn");
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                log("5. Envoi de la 2ème trame de confirmation...", "blue");
+                await targetChar.writeValueWithoutResponse(payload);
+                log("2ème trame envoyée avec succès !", "success");
+
+                log("=== PROCÉDURE TERMINÉE : Testez l'accélérateur ===", "blue");
 
             } catch (err) {
                 log(`ERREUR : ${err.name} -> ${err.message}`, "error");
