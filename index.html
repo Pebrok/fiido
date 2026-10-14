@@ -2,78 +2,149 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>BlueFly - Fiido T2</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fiido T2 Bluefy Full Sequence</title>
     <style>
-        body { font-family: sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; background: #121212; color: #e0e0e0; }
-        h1 { color: #4CAF50; font-size: 22px; }
-        button { background: #4CAF50; color: white; border: none; padding: 12px 20px; font-size: 16px; cursor: pointer; border-radius: 4px; width: 100%; margin-top: 10px; }
-        button:hover { background: #45a049; }
-        #log { background: #1e1e1e; padding: 15px; border-radius: 4px; margin-top: 20px; font-family: monospace; height: 220px; overflow-y: auto; white-space: pre-wrap; font-size: 13px; border: 1px solid #333; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #0d1117;
+            color: #c9d1d9;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px;
+            margin: 0;
+            box-sizing: border-box;
+        }
+        .container {
+            background: #161b22;
+            border: 1px solid #30363d;
+            padding: 1.2rem;
+            border-radius: 8px;
+            max-width: 480px;
+            width: 100%;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+        }
+        h1 { font-size: 1.2rem; margin-top: 0; color: #f0f6fc; text-align: center; }
+        .version { font-size: 0.75rem; color: #8b949e; margin-bottom: 1rem; text-align: center; }
+        button {
+            background-color: #238636;
+            color: white;
+            border: none;
+            padding: 12px 15px;
+            font-size: 0.95rem;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 8px;
+            font-weight: 600;
+        }
+        button:hover { background-color: #2ea043; }
+        button.secondary {
+            background-color: #21262d;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+        }
+        button.secondary:hover { background-color: #30363d; }
+        #log-box {
+            margin-top: 15px;
+            background: #010409;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 8px;
+            font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace;
+            font-size: 0.7rem;
+            height: 220px;
+            overflow-y: auto;
+            color: #7ee787;
+            word-break: break-all;
+            line-height: 1.4;
+        }
     </style>
 </head>
 <body>
 
-    <h1>BlueFly - Débridage Fiido T2</h1>
-    
-    <button id="connect">1. Connexion au vélo</button>
-    <button id="unlock" style="background: #ff5722; margin-top: 15px;">2. Envoyer la config (40 km/h)</button>
-
-    <div id="log">Prêt...</div>
+    <div class="container">
+        <h1>Fiido T2 Full Unlock</h1>
+        <div class="version">Version : v2.6-sequential</div>
+        
+        <button id="runBtn">Lancer la séquence complète</button>
+        
+        <div id="log-box">[Prêt] En attente de connexion via Bluefy...</div>
+        
+        <button id="copyBtn" class="secondary">Copier les logs</button>
+    </div>
 
     <script>
-        let bluetoothDevice;
-        let uartCharacteristic;
+        const logBox = document.getElementById('log-box');
+        const copyBtn = document.getElementById('copyBtn');
 
-        const UART_SERVICE_UUID = '0000ffe0-0000-1000-8000-00805f9b34fb';
-        const UART_CHAR_UUID    = '0000ffe1-0000-1000-8000-00805f9b34fb';
+        function log(message, type = 'info') {
+            const time = new Date().toLocaleTimeString();
+            let color = '#7ee787';
+            if (type === 'error') color = '#ff7b72';
+            if (type === 'warn') color = '#d29922';
+            if (type === 'blue') color = '#58a6ff';
 
-        const logDiv = document.getElementById('log');
-        function log(msg) {
-            logDiv.textContent += `\n${msg}`;
-            logDiv.scrollTop = logDiv.scrollHeight;
+            logBox.innerHTML += `<div style="color: ${color};">[${time}] ${message}</div>`;
+            logBox.scrollTop = logBox.scrollHeight;
         }
 
-        document.getElementById('connect').addEventListener('click', async () => {
-            try {
-                log('Recherche du vélo...');
-                bluetoothDevice = await navigator.bluetooth.requestDevice({
-                    acceptAllDevices: true,
-                    optionalServices: [UART_SERVICE_UUID]
-                });
-
-                log(`Appareil sélectionné : ${bluetoothDevice.name || 'Inconnu'}`);
-                const server = await bluetoothDevice.gatt.connect();
-                const service = await server.getPrimaryService(UART_SERVICE_UUID);
-                uartCharacteristic = await service.getCharacteristic(UART_CHAR_UUID);
-
-                // Activation des notifications pour écouter le retour du contrôleur
-                try {
-                    await uartCharacteristic.startNotifications();
-                    uartCharacteristic.addEventListener('characteristicvaluechanged', (e) => {
-                        const data = new Uint8Array(e.target.value.buffer);
-                        log(`<< Reçu : ${Array.from(data).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' ')}`);
-                    });
-                } catch (notifErr) {
-                    log('Note : Notifications non activées, passage en mode écriture directe.');
-                }
-
-                log('Connexion établie avec succès.');
-            } catch (err) {
-                log(`Erreur de connexion : ${err}`);
-            }
+        copyBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(logBox.innerText).then(() => {
+                const originalText = copyBtn.innerText;
+                copyBtn.innerText = "Copié !";
+                setTimeout(() => { copyBtn.innerText = originalText; }, 2000);
+            });
         });
 
-        document.getElementById('unlock').addEventListener('click', async () => {
-            if (!uartCharacteristic) {
-                log('Erreur : Veuillez d\'abord vous connecter au vélo.');
+        document.getElementById('runBtn').addEventListener('click', async () => {
+            logBox.innerHTML = "";
+            log("=== DÉBUT SÉQUENCE COMPLÈTE (v2.6) ===", "blue");
+
+            if (!navigator.bluetooth) {
+                log("ERREUR : Web Bluetooth non disponible.", "error");
                 return;
             }
+
             try {
-                const payload = new Uint8Array([0x53, 0x50, 0x44, 0x28, 0x0D]);
-                await uartCharacteristic.writeValueWithoutResponse(payload);
-                log('>> Trame 40 km/h envoyée avec succès.');
+                log("1. Association Bluetooth (Fiido)...");
+                const device = await navigator.bluetooth.requestDevice({
+                    filters: [{ namePrefix: 'Fiido' }],
+                    optionalServices: [0xFFE0, '0000ffe0-0000-1000-8000-00805f9b34fb']
+                });
+                log(Appareil : ${device.name}, "blue");
+
+                log("2. Connexion GATT...");
+                const server = await device.gatt.connect();
+                
+                log("3. Accès au service FFE0 et caractéristique FFE1...");
+                const service = await server.getPrimaryService(0xFFE0);
+                const characteristic = await service.getCharacteristic(0xFFE1);
+
+                // Étape A : Trame de déclenchement du mode debug / saisie du code
+                log("4. Envoi de la trame d'accès au mode debug...", "blue");
+                const payloadAuth = new Uint8Array([
+                    0x02, 0x41, 0x00, 0x0e, 0x00, 0x0a, 0x00, 0x04, 0x00, 
+                    0x52, 0x10, 0x00, 0x46, 0x64, 0xaa, 0x01, 0x2c, 0x61, 0xc4
+                ]);
+                await characteristic.writeValueWithoutResponse(payloadAuth);
+
+                // Pause pour laisser le contrôleur valider l'entrée du code
+                await new Promise(resolve => setTimeout(resolve, 400));
+
+                // Étape B : Trame de sélection du mode "sans limite" (vitesse maximale)
+                log("5. Envoi de la trame 'sans limite'...", "blue");
+                const payloadUnlimited = new Uint8Array([
+                    0x02, 0x41, 0x00, 0x0e, 0x00, 0x0a, 0x00, 0x04, 0x00, 
+                    0x52, 0x10, 0x00, 0x46, 0x64, 0xaa, 0x01, 0x40, 0x75, 0xd8
+                ]);
+                await characteristic.writeValueWithoutResponse(payloadUnlimited);
+
+                log("Succès : Séquence séquentielle transmise avec succès !", "blue");
+
             } catch (err) {
-                log(`Erreur lors de l'écriture : ${err}`);
+                log(`ERREUR : ${err.name} -> ${err.message}`, "error");
             }
         });
     </script>
