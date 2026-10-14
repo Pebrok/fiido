@@ -2,75 +2,78 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>BlueFly - Débridage Fiido T2</title>
+    <title>BlueFly - Fiido T2</title>
     <style>
         body { font-family: sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; background: #121212; color: #e0e0e0; }
-        h1 { color: #4CAF50; font-size: 24px; }
+        h1 { color: #4CAF50; font-size: 22px; }
         button { background: #4CAF50; color: white; border: none; padding: 12px 20px; font-size: 16px; cursor: pointer; border-radius: 4px; width: 100%; margin-top: 10px; }
         button:hover { background: #45a049; }
-        #log { background: #1e1e1e; padding: 15px; border-radius: 4px; margin-top: 20px; font-family: monospace; height: 250px; overflow-y: auto; white-space: pre-wrap; font-size: 13px; border: 1px solid #333; }
+        #log { background: #1e1e1e; padding: 15px; border-radius: 4px; margin-top: 20px; font-family: monospace; height: 220px; overflow-y: auto; white-space: pre-wrap; font-size: 13px; border: 1px solid #333; }
     </style>
 </head>
 <body>
 
-    <h1>BlueFly - Interface Fiido T2</h1>
-    <p>Connectez-vous au vélo pour initialiser le canal et configurer la vitesse.</p>
+    <h1>BlueFly - Débridage Fiido T2</h1>
     
-    <button id="connect">Scanner & Connecter au Vélo</button>
-    <button id="unlock" style="background: #ff5722; margin-top: 15px;">Envoyer la config (40 km/h)</button>
+    <button id="connect">1. Connexion au vélo</button>
+    <button id="unlock" style="background: #ff5722; margin-top: 15px;">2. Envoyer la config (40 km/h)</button>
 
     <div id="log">Prêt...</div>
 
     <script>
         let bluetoothDevice;
-        let targetCharacteristic;
+        let uartCharacteristic;
+
+        const UART_SERVICE_UUID = '0000ffe0-0000-1000-8000-00805f9b34fb';
+        const UART_CHAR_UUID    = '0000ffe1-0000-1000-8000-00805f9b34fb';
 
         const logDiv = document.getElementById('log');
-        function log(message) {
-            logDiv.textContent += `\n${message}`;
+        function log(msg) {
+            logDiv.textContent += `\n${msg}`;
             logDiv.scrollTop = logDiv.scrollHeight;
         }
 
         document.getElementById('connect').addEventListener('click', async () => {
             try {
-                log('Recherche du Fiido T2...');
+                log('Recherche du vélo...');
                 bluetoothDevice = await navigator.bluetooth.requestDevice({
                     acceptAllDevices: true,
-                    optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb'] // Service UART BLE standard souvent utilisé
+                    optionalServices: [UART_SERVICE_UUID]
                 });
 
-                log(`Connecté à : ${bluetoothDevice.name}`);
+                log(`Appareil sélectionné : ${bluetoothDevice.name || 'Inconnu'}`);
                 const server = await bluetoothDevice.gatt.connect();
-                const service = await server.getPrimaryService('0000ffe0-0000-1000-8000-00805f9b34fb');
-                
-                // Récupération de la caractéristique pour l'écriture/notifications
-                targetCharacteristic = await service.getCharacteristic('0000ffe1-0000-1000-8000-00805f9b34fb');
-                
-                // Étape indispensable vue dans votre capture : Activer les notifications (équivalent écriture 0x0001 sur le CCCD)
-                await targetCharacteristic.startNotifications();
-                targetCharacteristic.addEventListener('characteristicvaluechanged', (event) => {
-                    const value = new Uint8Array(event.target.value.buffer);
-                    log(`<< Reçu du vélo : ${Array.from(value).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' ')}`);
-                });
+                const service = await server.getPrimaryService(UART_SERVICE_UUID);
+                uartCharacteristic = await service.getCharacteristic(UART_CHAR_UUID);
 
-                log('Canal ouvert et notifications activées avec succès.');
-            } catch (error) {
-                log(`Erreur : ${error}`);
+                // Activation des notifications pour écouter le retour du contrôleur
+                try {
+                    await uartCharacteristic.startNotifications();
+                    uartCharacteristic.addEventListener('characteristicvaluechanged', (e) => {
+                        const data = new Uint8Array(e.target.value.buffer);
+                        log(`<< Reçu : ${Array.from(data).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' ')}`);
+                    });
+                } catch (notifErr) {
+                    log('Note : Notifications non activées, passage en mode écriture directe.');
+                }
+
+                log('Connexion établie avec succès.');
+            } catch (err) {
+                log(`Erreur de connexion : ${err}`);
             }
         });
 
         document.getElementById('unlock').addEventListener('click', async () => {
-            if (!targetCharacteristic) {
-                log('Erreur : Aucun appareil connecté.');
+            if (!uartCharacteristic) {
+                log('Erreur : Veuillez d\'abord vous connecter au vélo.');
                 return;
             }
             try {
-                // Trame de configuration de vitesse (40 km/h)
-                const command = new Uint8Array([0x53, 0x50, 0x44, 0x28, 0x0D]); 
-                await targetCharacteristic.writeValueWithoutResponse(command);
-                log('>> Trame de réglage (40 km/h) envoyée.');
-            } catch (error) {
-                log(`Erreur lors de l'envoi : ${error}`);
+                const payload = new Uint8Array([0x53, 0x50, 0x44, 0x28, 0x0D]);
+                await uartCharacteristic.writeValueWithoutResponse(payload);
+                log('>> Trame 40 km/h envoyée avec succès.');
+            } catch (err) {
+                log(`Erreur lors de l'écriture : ${err}`);
             }
         });
     </script>
