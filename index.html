@@ -67,11 +67,14 @@
 <body>
 <div class="container">
   <h1>Fiido T2 v3 diagnostic</h1>
-  <div class="version">Trames capturées sur Pixel, checksum XOR, rapport d'erreurs</div>
+  <div class="version">v3.1 : trames capturées sur Pixel, checksum XOR, rapport d'erreurs</div>
 
   <div class="panel" id="selftest"></div>
 
   <button id="btnConnect">1. Connecter et diagnostiquer</button>
+
+  <label class="check"><input type="checkbox" id="chkExt">
+    <span>Liste de services étendue (diagnostic, à cocher seulement si la connexion simple marche)</span></label>
 
   <label for="selChar">Caractéristique d'écriture
     <select id="selChar"><option>(connecte-toi d'abord)</option></select>
@@ -152,12 +155,14 @@ const FRAMES = {
 })();
 
 // ---------- État ----------
-const OPTIONAL = [
-  0xFFE0, '0000ffe0-0000-1000-8000-00805f9b34fb',
+// Liste minimale = celle de la v2.6, qui se connectait.
+const OPT_MIN = [0xFFE0, '0000ffe0-0000-1000-8000-00805f9b34fb'];
+// Liste étendue, uniquement si la case est cochée (pour voir d'autres services).
+const OPT_EXT = OPT_MIN.concat([
   0xFFF0, 0xFFE5,
   '6e400001-b5a3-f393-e0a9-e50e24dcca9e',
   'generic_access', 'device_information', 'battery_service'
-];
+]);
 let device = null, server = null, services = [], charList = [];
 let connectedAt = 0, queue = Promise.resolve(), pending = 0;
 let hbTimer = null, hbFails = 0;
@@ -166,7 +171,9 @@ const lastRx = {}, sameRx = {};
 
 // ---------- Gestion des erreurs ----------
 function hint(e) {
-  const n = e.name || '', m = e.message || '';
+  const n = e.name || '', m = String(e.message || '');
+  if (/^\d+$/.test(m))
+    return "Bluefy renvoie ici un simple code numérique (« " + m + " »), dont la signification n'est pas documentée à ma connaissance. Il survient avant l'affichage de la fenêtre de sélection : suspect probable = les paramètres de la demande (filtre ou liste de services).";
   if (n === 'NotFoundError' && /cancel|chosen|no device|user/i.test(m))
     return "sélection annulée, ou aucun appareil « Fiido » visible. Vélo allumé et proche ? L'app Fiido doit être fermée (une seule connexion Bluetooth à la fois).";
   if (n === 'NotFoundError')
@@ -183,8 +190,26 @@ function hint(e) {
     return "erreur de code ou fonction absente dans ce navigateur.";
   return "erreur non classée : copie le rapport complet pour analyse.";
 }
+let lastLogged = null;
+function describe(e) {
+  const parts = [];
+  try {
+    parts.push('type=' + typeof e);
+    if (e && e.constructor) parts.push('classe=' + e.constructor.name);
+    if (e && e.code !== undefined) parts.push('code=' + e.code);
+    if (e && typeof e === 'object') {
+      Object.getOwnPropertyNames(e).forEach(k => {
+        if (k !== 'stack') { try { parts.push(k + '=' + JSON.stringify(e[k])); } catch (x) {} }
+      });
+    }
+    parts.push('texte=' + String(e));
+  } catch (x) { parts.push('(description impossible)'); }
+  return parts.join(' | ');
+}
 function fail(name, e) {
+  lastLogged = e;
   log('✖ ' + name + ' → ' + (e.name || 'Error') + ' : ' + (e.message || e), 'err');
+  log('  détail : ' + describe(e), 'dim');
   log('  causes possibles : ' + hint(e), 'warn');
   problems.push(name + ' → ' + (e.name || 'Error') + ' : ' + (e.message || e));
   renderSummary();
@@ -197,7 +222,6 @@ async function step(name, fn) {
     return r;
   } catch (e) {
     fail(name, e);
-    e.logged = true;
     throw e;
   }
 }
@@ -294,6 +318,31 @@ function onNotif(ev) {
   renderSummary();
 }
 
+// ---------- Sélection de l'appareil : plusieurs tentatives, chacune journalisée ----------
+async function askDevice() {
+  const opt = $('chkExt').checked ? OPT_EXT : OPT_MIN;
+  const attempts = [
+    { label: 'filtre nom « Fiido » + service FFE0', opts: { filters: [{ namePrefix: 'Fiido' }], optionalServices: opt } },
+    { label: 'tous les appareils + service FFE0',  opts: { acceptAllDevices: true, optionalServices: OPT_MIN } }
+  ];
+  let lastErr = null;
+  for (let i = 0; i < attempts.length; i++) {
+    const a = attempts[i];
+    log('▶ Tentative ' + (i + 1) + '/' + attempts.length + ' : ' + a.label, 'blue');
+    try {
+      const d = await navigator.bluetooth.requestDevice(a.opts);
+      log('✔ Tentative ' + (i + 1) + ' réussie', 'ok');
+      return d;
+    } catch (e) {
+      lastErr = e;
+      fail('Tentative ' + (i + 1) + ' (' + a.label + ')', e);
+      // Annulation volontaire de la fenêtre : inutile d'insister.
+      if (e && e.name === 'NotFoundError' && /cancel|user/i.test(String(e.message))) break;
+    }
+  }
+  throw lastErr;
+}
+
 // ---------- Connexion ----------
 function flagsOf(p) {
   return ['read', 'write', 'writeWithoutResponse', 'notify', 'indicate'].filter(k => p[k]).join(',');
@@ -304,8 +353,7 @@ $('btnConnect').addEventListener('click', async () => {
   log('Page sécurisée : ' + window.isSecureContext + ' | Web Bluetooth : ' + !!navigator.bluetooth, 'dim');
   if (!navigator.bluetooth) { fail('Web Bluetooth disponible', new Error('navigator.bluetooth absent : ouvre cette page dans Bluefy')); return; }
   try {
-    device = await step('Sélection du vélo (nom commençant par Fiido)', () =>
-      navigator.bluetooth.requestDevice({ filters: [{ namePrefix: 'Fiido' }], optionalServices: OPTIONAL }));
+    device = await askDevice();
     log('Appareil : ' + device.name + ' | id ' + device.id, 'blue');
     device.addEventListener('gattserverdisconnected', () => {
       const s = connectedAt ? ((Date.now() - connectedAt) / 1000).toFixed(1) + ' s' : '?';
@@ -372,7 +420,7 @@ $('btnConnect').addEventListener('click', async () => {
     startHb();
     log('Prêt. Teste A seul, regarde le vélo, puis B.', 'ok');
   } catch (e) {
-    if (!e.logged) fail('Erreur inattendue', e);
+    if (e !== lastLogged) fail('Erreur inattendue', e);
     log('=== Connexion interrompue. Copie le rapport pour analyse. ===', 'err');
   }
   renderSummary();
