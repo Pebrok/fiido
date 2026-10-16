@@ -3,100 +3,84 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fiido T2 v3 diagnostic</title>
+<title>Fiido T2 v6 auto</title>
 <style>
   * { box-sizing: border-box; }
   body {
-    margin: 0; padding: 14px;
-    background: #0f1216; color: #d5dae0;
+    margin: 0; padding: 14px; background: #0f1216; color: #d5dae0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     display: flex; justify-content: center;
   }
-  .container {
-    width: 100%; max-width: 520px;
-    background: #171b21; border: 1px solid #2b323b;
-    border-radius: 8px; padding: 16px;
-  }
+  .container { width: 100%; max-width: 520px; background: #171b21; border: 1px solid #2b323b; border-radius: 8px; padding: 16px; }
   h1 { font-size: 1.15rem; margin: 0 0 2px; color: #f2f4f7; }
-  .version { font-size: 0.75rem; color: #8a94a0; margin-bottom: 12px; }
+  h2 { font-size: 0.85rem; margin: 14px 0 0; color: #f2f4f7; }
+  .version { font-size: 0.75rem; color: #8a94a0; margin-bottom: 8px; }
   button {
-    width: 100%; margin-top: 8px; padding: 12px;
-    border: 0; border-radius: 6px;
-    background: #2f7d4f; color: #fff;
-    font-size: 0.95rem; font-weight: 600;
+    width: 100%; margin-top: 8px; padding: 12px; border: 0; border-radius: 6px;
+    background: #2f7d4f; color: #fff; font-size: 0.92rem; font-weight: 600;
   }
   button:disabled { background: #2b323b; color: #6c7682; }
   button.secondary { background: #232932; border: 1px solid #2b323b; color: #d5dae0; }
-  button.secondary:disabled { color: #6c7682; }
   .row { display: flex; gap: 8px; }
   .row button { flex: 1; }
-  label { display: block; margin-top: 12px; font-size: 0.8rem; color: #8a94a0; }
-  select, input[type=number] {
-    width: 100%; margin-top: 4px; padding: 9px;
-    background: #0f1216; color: #d5dae0;
+  .hint { font-size: 0.75rem; color: #8a94a0; margin-top: 4px; line-height: 1.4; }
+  label.check { display: flex; gap: 8px; margin-top: 12px; font-size: 0.8rem; align-items: flex-start; }
+  label.check input { margin-top: 3px; }
+  select {
+    width: 100%; margin-top: 6px; padding: 9px; background: #0f1216; color: #d5dae0;
     border: 1px solid #2b323b; border-radius: 6px; font-size: 0.85rem;
   }
-  .check { display: flex; gap: 8px; align-items: flex-start; color: #d5dae0; }
-  .check input { margin-top: 3px; }
-  .panel {
-    margin-top: 12px; padding: 10px;
-    background: #0f1216; border: 1px solid #2b323b; border-radius: 6px;
-    font-size: 0.78rem; line-height: 1.5;
-  }
-  .panel h2 { margin: 0 0 4px; font-size: 0.82rem; color: #f2f4f7; }
-  .okline { color: #7ee787; }
-  .koline { color: #ff7b72; }
-  .waitline { color: #d29922; }
+  .panel { margin-top: 10px; padding: 10px; background: #0f1216; border: 1px solid #2b323b; border-radius: 6px; font-size: 0.78rem; line-height: 1.5; }
+  .okline { color: #7ee787; } .koline { color: #ff7b72; } .waitline { color: #d29922; }
   #log-box {
-    margin-top: 12px; height: 300px; overflow-y: auto;
-    background: #07090c; border: 1px solid #2b323b; border-radius: 6px;
-    padding: 8px; font-family: ui-monospace, Menlo, monospace;
-    font-size: 0.68rem; line-height: 1.45; word-break: break-all;
+    margin-top: 12px; height: 320px; overflow-y: auto; background: #07090c;
+    border: 1px solid #2b323b; border-radius: 6px; padding: 8px;
+    font-family: ui-monospace, Menlo, monospace; font-size: 0.68rem; line-height: 1.45; word-break: break-all;
   }
-  #log-box .info { color: #b6bdc6; }
-  #log-box .blue { color: #58a6ff; }
-  #log-box .ok { color: #7ee787; }
-  #log-box .err { color: #ff7b72; }
-  #log-box .warn { color: #d29922; }
-  #log-box .tx { color: #f0a35e; }
-  #log-box .rx { color: #c297ff; }
-  #log-box .dim { color: #6c7682; }
+  #log-box .info { color: #b6bdc6; } #log-box .blue { color: #58a6ff; } #log-box .ok { color: #7ee787; }
+  #log-box .err { color: #ff7b72; } #log-box .warn { color: #d29922; } #log-box .tx { color: #f0a35e; }
+  #log-box .rx { color: #c297ff; } #log-box .dim { color: #6c7682; }
   button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid #58a6ff; outline-offset: 2px; }
 </style>
 </head>
 <body>
 <div class="container">
-  <h1>Fiido T2 v3 diagnostic</h1>
-  <div class="version">v3.1 : trames capturées sur Pixel, checksum XOR, rapport d'erreurs</div>
+  <h1>Fiido T2 v6 auto</h1>
+  <div class="version">v6.0 : comme la v2.3 (19 octets) par défaut, débridage automatique, enregistrement complet</div>
 
   <div class="panel" id="selftest"></div>
 
-  <button id="btnConnect">1. Connecter et diagnostiquer</button>
+  <h2>1. Choisir le vélo dans la liste Bluetooth</h2>
+  <div class="hint">Chaque bouton ouvre la liste d'appareils avec des paramètres différents. Essaie-les dans l'ordre jusqu'à ce que la liste s'ouvre.</div>
+  <button id="btnPick1">1a. Identique à la v2.3 (filtre « Fiido »)</button>
+  <button id="btnPick2" class="secondary">1b. Tous les appareils Bluetooth, avec service FFE0</button>
+  <button id="btnPick3" class="secondary">1c. Tous les appareils, sans aucun service</button>
+  <button id="btnAvail" class="secondary">Tester si Bluetooth est disponible</button>
 
-  <label class="check"><input type="checkbox" id="chkExt">
-    <span>Liste de services étendue (diagnostic, à cocher seulement si la connexion simple marche)</span></label>
-
-  <label for="selChar">Caractéristique d'écriture
-    <select id="selChar"><option>(connecte-toi d'abord)</option></select>
-  </label>
-
-  <label class="check"><input type="checkbox" id="chkHb" checked>
-    <span>Envoyer aussi la trame de fond (46 64 55 26 1c 4d) toutes les 0,5 s, comme dans la capture</span></label>
-
-  <label for="gap">Délai entre A et B (ms)
-    <input type="number" id="gap" value="1500" min="0" step="100">
-  </label>
-
+  <h2>2. Envoyer les commandes</h2>
+  <label class="check"><input type="checkbox" id="chkHb">
+    <span>Envoyer aussi la trame de fond (46 64 55 26 1c 4d) toutes les 0,5 s, comme dans la capture (désactivée par défaut : la v2.3 marchait sans)</span></label>
+  <label class="check"><input type="checkbox" id="chkAuto" checked>
+    <span>Après la connexion : lire l'état, envoyer A puis B (1,5 s), puis enregistrer 10 s, le tout automatiquement</span></label>
+  <div class="hint" style="margin-top:12px">Format des trames envoyées</div>
+  <select id="selFmt">
+    <option value="19">19 octets, comme la v2.3 (a débloqué l'accélérateur)</option>
+    <option value="7">7 octets, valeur exacte de la capture Pixel</option>
+  </select>
+  <select id="selChar"><option>(choisis d'abord le vélo)</option></select>
   <div class="row">
-    <button id="btnA" disabled>2. Envoyer A</button>
-    <button id="btnB" disabled>3. Envoyer B</button>
+    <button id="btnA" disabled>Envoyer A</button>
+    <button id="btnB" disabled>Envoyer B</button>
   </div>
-  <button id="btnSeq" disabled>Séquence A puis B</button>
+  <button id="btnSeq" disabled>A puis B (1,5 s)</button>
   <button id="btnDisc" class="secondary" disabled>Déconnecter</button>
 
   <div class="panel" id="summary"></div>
   <div id="log-box"></div>
+  <textarea id="out" readonly rows="8" style="display:none;width:100%;margin-top:10px;background:#07090c;color:#b6bdc6;border:1px solid #2b323b;border-radius:6px;font-family:ui-monospace,Menlo,monospace;font-size:0.65rem"></textarea>
   <button id="btnCopy" class="secondary">Copier le rapport complet</button>
+  <button id="btnShare" class="secondary">Partager le rapport (Notes, Messages...)</button>
+  <button id="btnPrev" class="secondary">Copier le rapport d'avant le rechargement</button>
 </div>
 
 <script>
@@ -104,8 +88,19 @@ const $ = id => document.getElementById(id);
 const box = $('log-box');
 const lines = [];
 const problems = [];
+const STORE_KEY = 'fiido_t2_v6_log';
+let prevLog = '';
+try { prevLog = localStorage.getItem(STORE_KEY) || ''; } catch (e) {}
 
-// ---------- Journal ----------
+// ---------- Journal (sauvegardé dans le navigateur à chaque ligne) ----------
+let saveTimer = null;
+function persist() {
+  if (saveTimer) return;
+  saveTimer = setTimeout(() => {
+    saveTimer = null;
+    try { localStorage.setItem(STORE_KEY, lines.slice(-4000).join('\n')); } catch (e) {}
+  }, 300);
+}
 function ts() {
   const d = new Date();
   return d.toTimeString().slice(0, 8) + '.' + String(d.getMilliseconds()).padStart(3, '0');
@@ -113,13 +108,13 @@ function ts() {
 function log(msg, type = 'info') {
   const line = '[' + ts() + '] ' + msg;
   lines.push(line);
-  if (lines.length > 3000) lines.shift();
+  if (lines.length > 8000) lines.shift();
   const div = document.createElement('div');
-  div.className = type;
-  div.textContent = line;
+  div.className = type; div.textContent = line;
   box.appendChild(div);
-  while (box.childNodes.length > 400) box.removeChild(box.firstChild);
+  while (box.childNodes.length > 1500) box.removeChild(box.firstChild);
   box.scrollTop = box.scrollHeight;
+  persist();
 }
 function hex(x) {
   const u = x instanceof DataView ? new Uint8Array(x.buffer, x.byteOffset, x.byteLength) : new Uint8Array(x);
@@ -130,161 +125,124 @@ function short(u) {
 }
 
 // ---------- Trames (octets lus dans la capture Pixel) ----------
-// Le dernier octet de chaque trame = XOR de tous les octets précédents.
-// Vérifié sur les 12 trames différentes de la capture.
-function makeFrame(bytes) {
-  let x = 0;
-  for (const b of bytes) x ^= b;
-  return new Uint8Array([...bytes, x]);
+// Dernier octet = XOR de tous les précédents (vérifié sur les 12 trames différentes de la capture).
+function makeFrame(bytes) { let x = 0; for (const b of bytes) x ^= b; return new Uint8Array([...bytes, x]); }
+// Enveloppe identique à celle de la v2.3 : 02 41 00 [acl] 00 [l2cap] 00 04 00 52 10 00 + valeur.
+function wrap19(v) {
+  const att = 3 + v.length, acl = 4 + att;
+  return new Uint8Array([0x02, 0x41, 0x00, acl, 0x00, att, 0x00, 0x04, 0x00, 0x52, 0x10, 0x00, ...v]);
 }
+const V23_PAYLOAD = '02 41 00 0e 00 0a 00 04 00 52 10 00 46 64 aa 01 2c 61 c4';
 const FRAMES = {
   A:  { bytes: makeFrame([0x46, 0x64, 0xaa, 0x01, 0x2c, 0x61]), expect: '46 64 aa 01 2c 61 c4' },
   B:  { bytes: makeFrame([0x46, 0x64, 0xaa, 0x01, 0x27, 0x80]), expect: '46 64 aa 01 27 80 2e' },
   HB: { bytes: makeFrame([0x46, 0x64, 0x55, 0x26, 0x1c]),       expect: '46 64 55 26 1c 4d' }
 };
-(function selfTest() {
-  const el = $('selftest');
-  let html = '<h2>Auto-test des trames</h2>';
+(function () {
+  let html = '<b>Auto-test des trames</b>';
   for (const k of Object.keys(FRAMES)) {
-    const got = hex(FRAMES[k].bytes);
-    const ok = got === FRAMES[k].expect;
-    html += '<div class="' + (ok ? 'okline' : 'koline') + '">' + (ok ? '✔' : '✖') + ' ' + k + ' : ' + got +
-            (ok ? ' (identique à la capture)' : ' (attendu : ' + FRAMES[k].expect + ')') + '</div>';
+    const got = hex(FRAMES[k].bytes), ok = got === FRAMES[k].expect;
+    html += '<div class="' + (ok ? 'okline' : 'koline') + '">' + (ok ? '✔' : '✖') + ' ' + k + ' : ' + got + '</div>';
   }
-  el.innerHTML = html;
+  const w = hex(wrap19(FRAMES.A.bytes)), wok = w === V23_PAYLOAD;
+  html += '<div class="' + (wok ? 'okline' : 'koline') + '">' + (wok ? '✔' : '✖') + ' A en 19 octets identique à la v2.3</div>';
+  $('selftest').innerHTML = html;
 })();
 
 // ---------- État ----------
-// Liste minimale = celle de la v2.6, qui se connectait.
-const OPT_MIN = [0xFFE0, '0000ffe0-0000-1000-8000-00805f9b34fb'];
-// Liste étendue, uniquement si la case est cochée (pour voir d'autres services).
-const OPT_EXT = OPT_MIN.concat([
-  0xFFF0, 0xFFE5,
-  '6e400001-b5a3-f393-e0a9-e50e24dcca9e',
-  'generic_access', 'device_information', 'battery_service'
-]);
+const FFE0_LONG = '0000ffe0-0000-1000-8000-00805f9b34fb';
 let device = null, server = null, services = [], charList = [];
-let connectedAt = 0, queue = Promise.resolve(), pending = 0;
-let hbTimer = null, hbFails = 0;
+let connectedAt = 0, queue = Promise.resolve(), pending = 0, hbTimer = null, hbFails = 0;
 const stats = { tx: 0, txFail: 0, hb: 0, hbFail: 0, rx: 0 };
 const lastRx = {}, sameRx = {};
-
-// ---------- Gestion des erreurs ----------
-function hint(e) {
-  const n = e.name || '', m = String(e.message || '');
-  if (/^\d+$/.test(m))
-    return "Bluefy renvoie ici un simple code numérique (« " + m + " »), dont la signification n'est pas documentée à ma connaissance. Il survient avant l'affichage de la fenêtre de sélection : suspect probable = les paramètres de la demande (filtre ou liste de services).";
-  if (n === 'NotFoundError' && /cancel|chosen|no device|user/i.test(m))
-    return "sélection annulée, ou aucun appareil « Fiido » visible. Vélo allumé et proche ? L'app Fiido doit être fermée (une seule connexion Bluetooth à la fois).";
-  if (n === 'NotFoundError')
-    return "service ou caractéristique absent du vélo, ou UUID différent. Compare avec la liste des services affichée plus haut.";
-  if (n === 'SecurityError' || n === 'NotAllowedError')
-    return "accès refusé : UUID non déclaré dans optionalServices, page non sécurisée (https), ou appel hors d'un tap.";
-  if (n === 'NetworkError')
-    return "opération GATT échouée ou liaison coupée : vélo hors de portée ou éteint, déjà connecté à un autre appareil, ou autre opération GATT en cours.";
-  if (n === 'InvalidStateError')
-    return "connexion perdue avant l'opération : reconnecter.";
-  if (n === 'NotSupportedError')
-    return "opération non supportée par cette caractéristique (propriétés insuffisantes) ou par Bluefy.";
-  if (n === 'TypeError')
-    return "erreur de code ou fonction absente dans ce navigateur.";
-  return "erreur non classée : copie le rapport complet pour analyse.";
-}
 let lastLogged = null;
+
+// ---------- Erreurs ----------
 function describe(e) {
-  const parts = [];
+  const p = [];
   try {
-    parts.push('type=' + typeof e);
-    if (e && e.constructor) parts.push('classe=' + e.constructor.name);
-    if (e && e.code !== undefined) parts.push('code=' + e.code);
-    if (e && typeof e === 'object') {
-      Object.getOwnPropertyNames(e).forEach(k => {
-        if (k !== 'stack') { try { parts.push(k + '=' + JSON.stringify(e[k])); } catch (x) {} }
-      });
-    }
-    parts.push('texte=' + String(e));
-  } catch (x) { parts.push('(description impossible)'); }
-  return parts.join(' | ');
+    p.push('type=' + typeof e);
+    if (e && e.constructor) p.push('classe=' + e.constructor.name);
+    if (e && e.code !== undefined) p.push('code=' + e.code);
+    if (e && typeof e === 'object') Object.getOwnPropertyNames(e).forEach(k => {
+      if (k !== 'stack') { try { p.push(k + '=' + JSON.stringify(e[k])); } catch (x) {} }
+    });
+    p.push('texte=' + String(e));
+  } catch (x) { p.push('(description impossible)'); }
+  return p.join(' | ');
+}
+function hint(e) {
+  const n = (e && e.name) || '', m = String((e && e.message) !== undefined ? e.message : e);
+  if (typeof e === 'number' || /^\d+$/.test(m))
+    return 'Bluefy renvoie un simple code numérique (« ' + m + ' »), sans texte. Sa signification n\'est pas documentée à ma connaissance.';
+  if (n === 'NotFoundError' && /cancel|chosen|no device|user/i.test(m)) return 'sélection annulée, ou aucun appareil visible. Vélo allumé et proche ? App Fiido fermée ?';
+  if (n === 'NotFoundError') return 'service ou caractéristique absent du vélo, ou UUID différent.';
+  if (n === 'SecurityError' || n === 'NotAllowedError') return 'accès refusé : UUID non déclaré, page non sécurisée, ou appel hors d\'un tap.';
+  if (n === 'NetworkError') return 'opération GATT échouée ou liaison coupée : vélo éteint ou hors de portée, déjà connecté ailleurs, ou autre opération en cours.';
+  if (n === 'InvalidStateError') return 'connexion perdue avant l\'opération : reconnecter.';
+  if (n === 'NotSupportedError') return 'opération non supportée par cette caractéristique ou par Bluefy.';
+  if (n === 'TypeError') return 'erreur de code ou fonction absente dans ce navigateur.';
+  return 'erreur non classée : copie le rapport complet.';
 }
 function fail(name, e) {
   lastLogged = e;
-  log('✖ ' + name + ' → ' + (e.name || 'Error') + ' : ' + (e.message || e), 'err');
+  const nm = (e && e.name) || (typeof e), ms = (e && e.message !== undefined) ? e.message : e;
+  log('✖ ' + name + ' → ' + nm + ' : ' + ms, 'err');
   log('  détail : ' + describe(e), 'dim');
   log('  causes possibles : ' + hint(e), 'warn');
-  problems.push(name + ' → ' + (e.name || 'Error') + ' : ' + (e.message || e));
+  problems.push(name + ' → ' + nm + ' : ' + ms);
   renderSummary();
 }
 async function step(name, fn) {
   log('▶ ' + name, 'blue');
-  try {
-    const r = await fn();
-    log('✔ ' + name, 'ok');
-    return r;
-  } catch (e) {
-    fail(name, e);
-    throw e;
-  }
+  try { const r = await fn(); log('✔ ' + name, 'ok'); return r; }
+  catch (e) { fail(name, e); throw e; }
 }
 
 // ---------- Synthèse ----------
 function renderSummary() {
   const items = [];
-  const svc = services.some(s => s.uuid.startsWith('0000ffe0'));
   const ffe1 = charList.find(x => x.c.uuid.startsWith('0000ffe1'));
-  const connected = !!(server && server.connected);
-  items.push([connected ? 'ok' : 'ko', 'Connexion GATT' + (connected ? ' active' : ' inactive')]);
-  items.push([svc ? 'ok' : 'ko', 'Service FFE0 ' + (svc ? 'présent' : 'absent')]);
-  items.push([ffe1 ? 'ok' : 'ko', 'Caractéristique FFE1 ' + (ffe1 ? 'présente' : 'absente')]);
+  const conn = !!(server && server.connected);
+  items.push([conn ? 'ok' : 'wait', 'Connexion GATT ' + (conn ? 'active' : 'inactive')]);
+  items.push([services.some(s => s.uuid.startsWith('0000ffe0')) ? 'ok' : 'wait', 'Service FFE0']);
+  items.push([ffe1 ? 'ok' : 'wait', 'Caractéristique FFE1']);
   if (ffe1) items.push([ffe1.c.properties.writeWithoutResponse ? 'ok' : 'ko',
-    'FFE1 : writeWithoutResponse ' + (ffe1.c.properties.writeWithoutResponse ? 'supporté (comme la capture : Write Command)' : 'non supporté')]);
+    'FFE1 writeWithoutResponse ' + (ffe1.c.properties.writeWithoutResponse ? 'supporté' : 'non supporté')]);
   items.push([stats.txFail === 0 ? 'ok' : 'ko', 'Commandes : ' + stats.tx + ' envoyée(s), ' + stats.txFail + ' échec(s)']);
   items.push([stats.hbFail === 0 ? 'ok' : 'ko', 'Trame de fond : ' + stats.hb + ' envoyée(s), ' + stats.hbFail + ' échec(s)']);
-  items.push([stats.rx > 0 ? 'ok' : 'wait', 'Notifications reçues du vélo : ' + stats.rx +
-    (stats.rx === 0 ? ' (la capture Pixel n\'en contenait pas, donc ce n\'est pas forcément anormal)' : '')]);
-  let html = '<h2>Diagnostic</h2>';
-  for (const [s, t] of items) {
-    html += '<div class="' + (s === 'ok' ? 'okline' : s === 'ko' ? 'koline' : 'waitline') + '">' +
-            (s === 'ok' ? '✔' : s === 'ko' ? '✖' : '…') + ' ' + t + '</div>';
-  }
+  items.push([stats.rx > 0 ? 'ok' : 'wait', 'Notifications du vélo : ' + stats.rx]);
+  let html = '<b>Diagnostic</b>';
+  for (const [s, t] of items) html += '<div class="' + (s === 'ok' ? 'okline' : s === 'ko' ? 'koline' : 'waitline') + '">' + (s === 'ok' ? '✔' : s === 'ko' ? '✖' : '…') + ' ' + t + '</div>';
   if (problems.length) {
-    html += '<h2 style="margin-top:8px">Erreurs (' + problems.length + ')</h2>';
-    problems.slice(-6).forEach(p => { html += '<div class="koline">' + p.replace(/</g, '&lt;') + '</div>'; });
+    html += '<div style="margin-top:6px"><b>Erreurs (' + problems.length + ')</b></div>';
+    problems.slice(-5).forEach(p => { html += '<div class="koline">' + p.replace(/</g, '&lt;') + '</div>'; });
   }
-  html += '<div style="margin-top:8px;color:#8a94a0">Le handle 0x0010 de la capture ne peut pas être vérifié ici : Web Bluetooth n\'expose pas les handles. ' +
-          'La liste déroulante permet de choisir une autre caractéristique si FFE1 ne donne rien.</div>';
   $('summary').innerHTML = html;
 }
 
-// ---------- Envoi (file d'attente : une seule écriture GATT à la fois) ----------
-function currentChar() {
-  const x = charList[Number($('selChar').value)];
-  return x ? x.c : null;
-}
+// ---------- Envoi (une écriture GATT à la fois) ----------
+function currentChar() { const x = charList[Number($('selChar').value)]; return x ? x.c : null; }
 function send(name, frame, quiet) {
   pending++;
   const job = queue.then(async () => {
-    if (!server || !server.connected) {
-      const e = new Error('vélo non connecté'); e.name = 'InvalidStateError'; throw e;
-    }
+    if (!server || !server.connected) { const e = new Error('vélo non connecté'); e.name = 'InvalidStateError'; throw e; }
     const c = currentChar();
     if (!c) { const e = new Error('aucune caractéristique sélectionnée'); e.name = 'NotFoundError'; throw e; }
+    const out = $('selFmt').value === '19' ? wrap19(frame) : frame;
     const t0 = performance.now();
-    if (c.properties.writeWithoutResponse && c.writeValueWithoutResponse) await c.writeValueWithoutResponse(frame);
-    else await c.writeValue(frame);
-    if (!quiet) log('TX ' + name + ' : ' + hex(frame) + ' (' + Math.round(performance.now() - t0) + ' ms)', 'tx');
+    if (c.properties.writeWithoutResponse && c.writeValueWithoutResponse) await c.writeValueWithoutResponse(out);
+    else await c.writeValue(out);
+    log('TX ' + name + ' : ' + hex(out) + ' (' + Math.round(performance.now() - t0) + ' ms)', name === 'HB' ? 'dim' : 'tx');
   });
   queue = job.catch(() => {}).then(() => { pending--; });
   return job;
 }
 async function sendCmd(name) {
-  try {
-    await step('Envoi ' + name, () => send(name, FRAMES[name].bytes, false));
-    stats.tx++;
-  } catch (e) { stats.txFail++; throw e; }
+  try { await step('Envoi ' + name, () => send(name, FRAMES[name].bytes, false)); stats.tx++; }
+  catch (e) { stats.txFail++; throw e; }
   finally { renderSummary(); }
 }
-
-// ---------- Trame de fond ----------
 function startHb() {
   stopHb();
   if (!$('chkHb').checked) return;
@@ -292,10 +250,8 @@ function startHb() {
   hbTimer = setInterval(async () => {
     if (pending > 0 || !server || !server.connected) return;
     try {
-      await send('HB', FRAMES.HB.bytes, true);
-      stats.hb++;
-      if (stats.hb <= 2) log('TX HB : ' + hex(FRAMES.HB.bytes) + ' (les suivantes ne sont plus affichées)', 'dim');
-      hbFails = 0;
+      await send('HB', FRAMES.HB.bytes, false);
+      stats.hb++; hbFails = 0;
     } catch (e) {
       stats.hbFail++; hbFails++;
       if (hbFails <= 2) fail('Trame de fond', e);
@@ -307,73 +263,102 @@ function startHb() {
 function stopHb() { if (hbTimer) { clearInterval(hbTimer); hbTimer = null; } }
 $('chkHb').addEventListener('change', () => { if (server && server.connected) { $('chkHb').checked ? startHb() : stopHb(); } });
 
-// ---------- Notifications ----------
 function onNotif(ev) {
   const c = ev.target, h = hex(c.value), k = c.uuid;
   stats.rx++;
-  if (lastRx[k] === h) { sameRx[k] = (sameRx[k] || 0) + 1; return; }
-  if (sameRx[k]) log('  (' + sameRx[k] + ' notification(s) identique(s) non affichée(s))', 'dim');
-  sameRx[k] = 0; lastRx[k] = h;
   log('RX ' + short(k) + ' : ' + h, 'rx');
   renderSummary();
 }
+function flagsOf(p) { return ['read', 'write', 'writeWithoutResponse', 'notify', 'indicate'].filter(k => p[k]).join(','); }
 
-// ---------- Sélection de l'appareil : plusieurs tentatives, chacune journalisée ----------
-async function askDevice() {
-  const opt = $('chkExt').checked ? OPT_EXT : OPT_MIN;
-  const attempts = [
-    { label: 'filtre nom « Fiido » + service FFE0', opts: { filters: [{ namePrefix: 'Fiido' }], optionalServices: opt } },
-    { label: 'tous les appareils + service FFE0',  opts: { acceptAllDevices: true, optionalServices: OPT_MIN } }
-  ];
-  let lastErr = null;
-  for (let i = 0; i < attempts.length; i++) {
-    const a = attempts[i];
-    log('▶ Tentative ' + (i + 1) + '/' + attempts.length + ' : ' + a.label, 'blue');
-    try {
-      const d = await navigator.bluetooth.requestDevice(a.opts);
-      log('✔ Tentative ' + (i + 1) + ' réussie', 'ok');
-      return d;
-    } catch (e) {
-      lastErr = e;
-      fail('Tentative ' + (i + 1) + ' (' + a.label + ')', e);
-      // Annulation volontaire de la fenêtre : inutile d'insister.
-      if (e && e.name === 'NotFoundError' && /cancel|user/i.test(String(e.message))) break;
-    }
-  }
-  throw lastErr;
+// ---------- Étape 1 : sélection. requestDevice est appelé DIRECTEMENT dans le tap. ----------
+function pick(label, opts) {
+  log('=== Sélection : ' + label + ' ===', 'blue');
+  if (!navigator.bluetooth) { fail('Web Bluetooth', new Error('navigator.bluetooth absent : ouvre la page dans Bluefy')); return; }
+  let p;
+  try { p = navigator.bluetooth.requestDevice(opts); }
+  catch (e) { fail('requestDevice (appel immédiat)', e); return; }
+  log('requestDevice appelé, en attente de la liste d\'appareils...', 'dim');
+  p.then(d => afterPick(d), e => {
+    fail('requestDevice (' + label + ')', e);
+    log('Essaie le bouton suivant (1b, puis 1c), ou copie le rapport.', 'warn');
+  });
 }
-
-// ---------- Connexion ----------
-function flagsOf(p) {
-  return ['read', 'write', 'writeWithoutResponse', 'notify', 'indicate'].filter(k => p[k]).join(',');
-}
-$('btnConnect').addEventListener('click', async () => {
-  log('=== v3 : connexion et diagnostic ===', 'blue');
-  log('Navigateur : ' + navigator.userAgent, 'dim');
-  log('Page sécurisée : ' + window.isSecureContext + ' | Web Bluetooth : ' + !!navigator.bluetooth, 'dim');
-  if (!navigator.bluetooth) { fail('Web Bluetooth disponible', new Error('navigator.bluetooth absent : ouvre cette page dans Bluefy')); return; }
+// Paramètres recopiés mot pour mot de la v2.3.
+$('btnPick1').addEventListener('click', () => pick('identique à la v2.3', {
+  filters: [{ namePrefix: 'Fiido' }],
+  optionalServices: [0xFFE0, 0xFFE1, '0000ffe0-0000-1000-8000-00805f9b34fb', '0000ffe1-0000-1000-8000-00805f9b34fb']
+}));
+$('btnPick2').addEventListener('click', () => pick('tous les appareils + FFE0', {
+  acceptAllDevices: true, optionalServices: [0xFFE0, FFE0_LONG] }));
+$('btnPick3').addEventListener('click', () => pick('tous les appareils, sans service', {
+  acceptAllDevices: true }));
+$('btnAvail').addEventListener('click', async () => {
+  log('=== Test de disponibilité Bluetooth ===', 'blue');
+  log('Page sécurisée : ' + window.isSecureContext + ' | navigator.bluetooth : ' + !!navigator.bluetooth, 'info');
+  if (!navigator.bluetooth) { log('navigator.bluetooth absent.', 'err'); return; }
   try {
-    device = await askDevice();
-    log('Appareil : ' + device.name + ' | id ' + device.id, 'blue');
-    device.addEventListener('gattserverdisconnected', () => {
-      const s = connectedAt ? ((Date.now() - connectedAt) / 1000).toFixed(1) + ' s' : '?';
-      log('⚠ Vélo déconnecté (connexion tenue ' + s + ').', 'warn');
-      stopHb();
-      ['btnA', 'btnB', 'btnSeq', 'btnDisc'].forEach(i => $(i).disabled = true);
-      renderSummary();
-    });
+    if (navigator.bluetooth.getAvailability) log('getAvailability() = ' + await navigator.bluetooth.getAvailability(), 'info');
+    else log('getAvailability() non disponible dans ce navigateur.', 'warn');
+  } catch (e) { fail('getAvailability', e); }
+});
 
+// ---------- Séquence automatique ----------
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function readAll(tag) {
+  for (const x of charList) {
+    if (!x.c.properties.read) continue;
+    try { const v = await x.c.readValue(); log('READ ' + tag + ' ' + short(x.c.uuid) + ' : ' + hex(v), 'rx'); }
+    catch (e) { log('READ ' + tag + ' ' + short(x.c.uuid) + ' échec : ' + e, 'dim'); }
+  }
+}
+function finish() {
+  stopHb();
+  log('Trame de fond arrêtée. Connexion laissée ouverte.', 'dim');
+  renderSummary();
+  log('=== FIN. Copie le rapport (bouton ou zone de texte en bas). ===', 'ok');
+  const o = $('out'); o.style.display = 'block'; o.value = reportText();
+}
+async function runAuto() {
+  log('=== AUTO : séquence de débridage ===', 'blue');
+  await readAll('avant');
+  log('Enregistrement de l\'état de base pendant 3 s...', 'dim');
+  await sleep(3000);
+  try {
+    await sendCmd('A');
+    log('A envoyée. Pause 1500 ms.', 'dim');
+    await sleep(1500);
+    await sendCmd('B');
+    log('B envoyée. Enregistrement pendant 10 s...', 'ok');
+    await sleep(10000);
+    await readAll('après');
+  } catch (e) {
+    log('AUTO interrompu à cause de l\'erreur ci-dessus (B n\'est pas envoyée si A échoue).', 'err');
+  }
+  finish();
+}
+
+// ---------- Étape 2 : connexion et exploration, après la sélection ----------
+async function afterPick(d) {
+  device = d;
+  log('Appareil choisi : ' + (device.name || '(sans nom)') + ' | id ' + device.id, 'ok');
+  device.addEventListener('gattserverdisconnected', () => {
+    const s = connectedAt ? ((Date.now() - connectedAt) / 1000).toFixed(1) + ' s' : '?';
+    log('⚠ Vélo déconnecté (connexion tenue ' + s + ').', 'warn');
+    stopHb();
+    ['btnA', 'btnB', 'btnSeq', 'btnDisc'].forEach(i => $(i).disabled = true);
+    renderSummary();
+  });
+  try {
     server = await step('Connexion GATT', () => device.gatt.connect());
     connectedAt = Date.now();
-
     services = await step('Liste des services', async () => {
       try { return await server.getPrimaryServices(); }
       catch (e) {
-        log('getPrimaryServices() a échoué (' + e.name + ' : ' + e.message + '), essai direct de FFE0', 'warn');
+        log('getPrimaryServices() a échoué (' + e + '), essai direct de FFE0', 'warn');
         return [await server.getPrimaryService(0xFFE0)];
       }
     });
-
     charList = [];
     $('selChar').innerHTML = '';
     for (const s of services) {
@@ -386,26 +371,21 @@ $('btnConnect').addEventListener('click', async () => {
         charList.push({ c, svc: s.uuid, idx: i });
       });
     }
-
-    // Caractéristiques écrivables dans la liste déroulante, FFE1 présélectionnée.
-    let preselect = -1;
+    let pre = -1;
     charList.forEach((x, n) => {
       if (x.c.properties.write || x.c.properties.writeWithoutResponse) {
         const o = document.createElement('option');
         o.value = n;
         o.textContent = short(x.c.uuid) + ' (service ' + short(x.svc) + ', #' + x.idx + ') [' + flagsOf(x.c.properties) + ']';
         $('selChar').appendChild(o);
-        if (x.c.uuid.startsWith('0000ffe1')) preselect = n;
+        if (x.c.uuid.startsWith('0000ffe1')) pre = n;
       }
     });
-    if (preselect >= 0) $('selChar').value = String(preselect);
+    if (pre >= 0) $('selChar').value = String(pre);
     if (!$('selChar').options.length) {
-      const e = new Error('aucune caractéristique écrivable trouvée');
-      e.name = 'NotFoundError'; fail('Choix de la caractéristique', e); throw e;
+      const e = new Error('aucune caractéristique écrivable trouvée'); e.name = 'NotFoundError'; fail('Choix de la caractéristique', e); return;
     }
-    if (preselect < 0) log('FFE1 introuvable : une autre caractéristique est présélectionnée, vérifie la liste.', 'warn');
-
-    // Notifications : donnent les réponses du vélo, absentes de la capture.
+    if (pre < 0) log('FFE1 introuvable : une autre caractéristique est présélectionnée, vérifie la liste.', 'warn');
     for (const x of charList) {
       if (x.c.properties.notify || x.c.properties.indicate) {
         try {
@@ -415,56 +395,63 @@ $('btnConnect').addEventListener('click', async () => {
         } catch (e) { fail('Notifications sur ' + short(x.c.uuid), e); }
       }
     }
-
     ['btnA', 'btnB', 'btnSeq', 'btnDisc'].forEach(i => $(i).disabled = false);
     startHb();
-    log('Prêt. Teste A seul, regarde le vélo, puis B.', 'ok');
+    log('Prêt.', 'ok');
+    if ($('chkAuto').checked) await runAuto();
+    else log('Mode auto désactivé : utilise Envoyer A puis Envoyer B.', 'info');
   } catch (e) {
     if (e !== lastLogged) fail('Erreur inattendue', e);
-    log('=== Connexion interrompue. Copie le rapport pour analyse. ===', 'err');
+    log('=== Connexion interrompue. Copie le rapport. ===', 'err');
   }
   renderSummary();
-});
+}
 
 // ---------- Commandes ----------
 $('btnA').addEventListener('click', async () => { try { await sendCmd('A'); } catch (e) {} });
 $('btnB').addEventListener('click', async () => { try { await sendCmd('B'); } catch (e) {} });
 $('btnSeq').addEventListener('click', async () => {
-  const gap = Math.max(0, Number($('gap').value) || 0);
-  log('=== Séquence A puis B (délai ' + gap + ' ms) ===', 'blue');
+  log('=== Séquence A puis B (1500 ms) ===', 'blue');
   try {
     await sendCmd('A');
-    await new Promise(r => setTimeout(r, gap));
+    await new Promise(r => setTimeout(r, 1500));
     await sendCmd('B');
-    log('Séquence envoyée. Pour vérifier : déconnecte ici, ouvre l\'app Fiido et regarde si le mode fusée est actif.', 'ok');
-  } catch (e) {
-    log('Séquence interrompue à cause de l\'erreur ci-dessus.', 'err');
-  }
+    log('Séquence envoyée. Déconnecte ici, ouvre l\'app Fiido et regarde si le mode fusée est actif.', 'ok');
+  } catch (e) { log('Séquence interrompue à cause de l\'erreur ci-dessus.', 'err'); }
 });
-$('btnDisc').addEventListener('click', () => {
-  stopHb();
-  if (device && device.gatt.connected) device.gatt.disconnect();
-});
+$('btnDisc').addEventListener('click', () => { stopHb(); if (device && device.gatt.connected) device.gatt.disconnect(); });
 
-// ---------- Rapport ----------
-$('btnCopy').addEventListener('click', async () => {
-  const head = 'Fiido T2 v3 | ' + new Date().toISOString() + '\n' + navigator.userAgent + '\n' +
+// ---------- Rapports ----------
+function reportText() {
+  return 'Fiido T2 v6 | ' + new Date().toISOString() + '\n' + navigator.userAgent + '\n' +
     'tx=' + stats.tx + ' txFail=' + stats.txFail + ' hb=' + stats.hb + ' hbFail=' + stats.hbFail + ' rx=' + stats.rx + '\n' +
-    'Erreurs : ' + (problems.length ? '\n- ' + problems.join('\n- ') : 'aucune') + '\n\n';
-  const text = head + lines.join('\n');
-  const b = $('btnCopy'), old = b.textContent;
-  try {
-    await navigator.clipboard.writeText(text);
-    b.textContent = 'Copié';
-  } catch (e) {
+    'Erreurs : ' + (problems.length ? '\n- ' + problems.join('\n- ') : 'aucune') + '\n\n' + lines.join('\n');
+}
+async function copyText(text, btn) {
+  const old = btn.textContent;
+  try { await navigator.clipboard.writeText(text); btn.textContent = 'Copié'; }
+  catch (e) {
     const ta = document.createElement('textarea');
     ta.value = text; document.body.appendChild(ta); ta.select();
-    try { document.execCommand('copy'); b.textContent = 'Copié'; } catch (e2) { b.textContent = 'Copie impossible'; }
+    try { document.execCommand('copy'); btn.textContent = 'Copié'; } catch (e2) { btn.textContent = 'Copie impossible'; }
     document.body.removeChild(ta);
   }
-  setTimeout(() => { b.textContent = old; }, 2000);
+  setTimeout(() => { btn.textContent = old; }, 2000);
+}
+$('btnCopy').addEventListener('click', () => copyText(reportText(), $('btnCopy')));
+$('btnShare').addEventListener('click', async () => {
+  if (navigator.share) { try { await navigator.share({ title: 'Rapport Fiido T2', text: reportText() }); } catch (e) { log('Partage annulé ou refusé : ' + e, 'warn'); } }
+  else log('Le partage n\'est pas disponible ici : utilise « Copier le rapport complet ».', 'warn');
+});
+$('btnPrev').addEventListener('click', () => {
+  if (!prevLog) { log('Aucun rapport d\'une session précédente n\'a été sauvegardé.', 'warn'); return; }
+  copyText('Rapport de la session précédente\n\n' + prevLog, $('btnPrev'));
 });
 
+// Démarrage
+log('Page v4 chargée. Page sécurisée : ' + window.isSecureContext + ' | Web Bluetooth : ' + !!navigator.bluetooth, 'info');
+log('Navigateur : ' + navigator.userAgent, 'dim');
+if (prevLog) log('Un rapport de la session précédente est disponible (bouton en bas).', 'dim');
 renderSummary();
 </script>
 </body>
