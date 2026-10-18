@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fiido T2 v6 auto</title>
+<title>Fiido T2 v7 un tap</title>
 <style>
   * { box-sizing: border-box; }
   body {
@@ -45,12 +45,16 @@
 </head>
 <body>
 <div class="container">
-  <h1>Fiido T2 v6 auto</h1>
-  <div class="version">v6.0 : comme la v2.3 (19 octets) par défaut, débridage automatique, enregistrement complet</div>
+  <h1>Fiido T2 v7 un tap</h1>
+  <div class="version">v7.0 : un seul bouton, à relancer à chaque allumage du vélo</div>
 
   <div class="panel" id="selftest"></div>
 
-  <h2>1. Choisir le vélo dans la liste Bluetooth</h2>
+  <div id="status" class="panel" style="font-size:0.95rem;font-weight:600">Prêt. Vélo allumé, app Fiido fermée.</div>
+  <button id="btnGo" style="padding:20px;font-size:1.1rem">Débrider le vélo</button>
+  <div class="hint">Un seul tap : tu choisis le vélo dans la liste, puis A et B s'envoient seules. Le vélo revient à 25 km/h dès qu'on l'éteint, donc à refaire à chaque allumage.</div>
+
+  <h2>Options avancées : choisir le vélo autrement</h2>
   <div class="hint">Chaque bouton ouvre la liste d'appareils avec des paramètres différents. Essaie-les dans l'ordre jusqu'à ce que la liste s'ouvre.</div>
   <button id="btnPick1">1a. Identique à la v2.3 (filtre « Fiido »)</button>
   <button id="btnPick2" class="secondary">1b. Tous les appareils Bluetooth, avec service FFE0</button>
@@ -61,7 +65,7 @@
   <label class="check"><input type="checkbox" id="chkHb">
     <span>Envoyer aussi la trame de fond (46 64 55 26 1c 4d) toutes les 0,5 s, comme dans la capture (désactivée par défaut : la v2.3 marchait sans)</span></label>
   <label class="check"><input type="checkbox" id="chkAuto" checked>
-    <span>Après la connexion : lire l'état, envoyer A puis B (1,5 s), puis enregistrer 10 s, le tout automatiquement</span></label>
+    <span>Après la connexion : lire l'état, envoyer A puis B (1,5 s), puis enregistrer 5 s, le tout automatiquement</span></label>
   <div class="hint" style="margin-top:12px">Format des trames envoyées</div>
   <select id="selFmt">
     <option value="19">19 octets, comme la v2.3 (a débloqué l'accélérateur)</option>
@@ -88,7 +92,7 @@ const $ = id => document.getElementById(id);
 const box = $('log-box');
 const lines = [];
 const problems = [];
-const STORE_KEY = 'fiido_t2_v6_log';
+const STORE_KEY = 'fiido_t2_v7_log';
 let prevLog = '';
 try { prevLog = localStorage.getItem(STORE_KEY) || ''; } catch (e) {}
 
@@ -282,9 +286,15 @@ function pick(label, opts) {
   p.then(d => afterPick(d), e => {
     fail('requestDevice (' + label + ')', e);
     log('Essaie le bouton suivant (1b, puis 1c), ou copie le rapport.', 'warn');
+    setStatus('✖ Sélection impossible : copie le rapport.', 'koline');
   });
 }
 // Paramètres recopiés mot pour mot de la v2.3.
+$('btnGo').addEventListener('click', () => {
+  $('chkAuto').checked = true;
+  setStatus('Choisis le vélo dans la liste...', 'waitline');
+  pick('un tap : tous les appareils, sans service', { acceptAllDevices: true });
+});
 $('btnPick1').addEventListener('click', () => pick('identique à la v2.3', {
   filters: [{ namePrefix: 'Fiido' }],
   optionalServices: [0xFFE0, 0xFFE1, '0000ffe0-0000-1000-8000-00805f9b34fb', '0000ffe1-0000-1000-8000-00805f9b34fb']
@@ -312,7 +322,10 @@ async function readAll(tag) {
     catch (e) { log('READ ' + tag + ' ' + short(x.c.uuid) + ' échec : ' + e, 'dim'); }
   }
 }
+function setStatus(t, cls) { const el = $('status'); el.textContent = t; el.className = 'panel ' + (cls || ''); }
 function finish() {
+  if (stats.txFail === 0 && stats.tx >= 2) setStatus('✔ A et B envoyées sans erreur. Teste l\'accélérateur.', 'okline');
+  else setStatus('✖ Échec : copie le rapport et colle-le à Claude.', 'koline');
   stopHb();
   log('Trame de fond arrêtée. Connexion laissée ouverte.', 'dim');
   renderSummary();
@@ -321,16 +334,17 @@ function finish() {
 }
 async function runAuto() {
   log('=== AUTO : séquence de débridage ===', 'blue');
+  setStatus('Envoi en cours, ne ferme pas la page...', 'waitline');
   await readAll('avant');
-  log('Enregistrement de l\'état de base pendant 3 s...', 'dim');
-  await sleep(3000);
+  log('Enregistrement de l\'état de base pendant 1 s...', 'dim');
+  await sleep(1000);
   try {
     await sendCmd('A');
     log('A envoyée. Pause 1500 ms.', 'dim');
     await sleep(1500);
     await sendCmd('B');
-    log('B envoyée. Enregistrement pendant 10 s...', 'ok');
-    await sleep(10000);
+    log('B envoyée. Enregistrement pendant 5 s...', 'ok');
+    await sleep(5000);
     await readAll('après');
   } catch (e) {
     log('AUTO interrompu à cause de l\'erreur ci-dessus (B n\'est pas envoyée si A échoue).', 'err');
@@ -423,7 +437,7 @@ $('btnDisc').addEventListener('click', () => { stopHb(); if (device && device.ga
 
 // ---------- Rapports ----------
 function reportText() {
-  return 'Fiido T2 v6 | ' + new Date().toISOString() + '\n' + navigator.userAgent + '\n' +
+  return 'Fiido T2 v7 | ' + new Date().toISOString() + '\n' + navigator.userAgent + '\n' +
     'tx=' + stats.tx + ' txFail=' + stats.txFail + ' hb=' + stats.hb + ' hbFail=' + stats.hbFail + ' rx=' + stats.rx + '\n' +
     'Erreurs : ' + (problems.length ? '\n- ' + problems.join('\n- ') : 'aucune') + '\n\n' + lines.join('\n');
 }
