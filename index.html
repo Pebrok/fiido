@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fiido T2 v7 un tap</title>
+<title>Fiido T2 v8 sans liste</title>
 <style>
   * { box-sizing: border-box; }
   body {
@@ -45,8 +45,8 @@
 </head>
 <body>
 <div class="container">
-  <h1>Fiido T2 v7 un tap</h1>
-  <div class="version">v7.0 : un seul bouton, à relancer à chaque allumage du vélo</div>
+  <h1>Fiido T2 v8 sans liste</h1>
+  <div class="version">v8.0 : un tap, ou reconnexion sans liste à tester</div>
 
   <div class="panel" id="selftest"></div>
 
@@ -54,9 +54,12 @@
   <button id="btnGo" style="padding:20px;font-size:1.1rem">Débrider le vélo</button>
   <div class="hint">Un seul tap : tu choisis le vélo dans la liste, puis A et B s'envoient seules. Le vélo revient à 25 km/h dès qu'on l'éteint, donc à refaire à chaque allumage.</div>
 
+  <button id="btnRe" class="secondary">Reconnexion sans liste (test)</button>
+  <div class="hint">À tester après avoir choisi le vélo au moins une fois avec « Débrider le vélo », en gardant activé l'interrupteur « futures connexions en arrière-plan » de la fenêtre de sélection.</div>
+
   <h2>Options avancées : choisir le vélo autrement</h2>
   <div class="hint">Chaque bouton ouvre la liste d'appareils avec des paramètres différents. Essaie-les dans l'ordre jusqu'à ce que la liste s'ouvre.</div>
-  <button id="btnPick1">1a. Identique à la v2.3 (filtre « Fiido »)</button>
+  <button id="btnPick1">1a. Filtre « Fiido » + services (échoue avec le code 2 sur ton Bluefy)</button>
   <button id="btnPick2" class="secondary">1b. Tous les appareils Bluetooth, avec service FFE0</button>
   <button id="btnPick3" class="secondary">1c. Tous les appareils, sans aucun service</button>
   <button id="btnAvail" class="secondary">Tester si Bluetooth est disponible</button>
@@ -92,7 +95,7 @@ const $ = id => document.getElementById(id);
 const box = $('log-box');
 const lines = [];
 const problems = [];
-const STORE_KEY = 'fiido_t2_v7_log';
+const STORE_KEY = 'fiido_t2_v8_log';
 let prevLog = '';
 try { prevLog = localStorage.getItem(STORE_KEY) || ''; } catch (e) {}
 
@@ -437,7 +440,7 @@ $('btnDisc').addEventListener('click', () => { stopHb(); if (device && device.ga
 
 // ---------- Rapports ----------
 function reportText() {
-  return 'Fiido T2 v7 | ' + new Date().toISOString() + '\n' + navigator.userAgent + '\n' +
+  return 'Fiido T2 v8 | ' + new Date().toISOString() + '\n' + navigator.userAgent + '\n' +
     'tx=' + stats.tx + ' txFail=' + stats.txFail + ' hb=' + stats.hb + ' hbFail=' + stats.hbFail + ' rx=' + stats.rx + '\n' +
     'Erreurs : ' + (problems.length ? '\n- ' + problems.join('\n- ') : 'aucune') + '\n\n' + lines.join('\n');
 }
@@ -462,8 +465,35 @@ $('btnPrev').addEventListener('click', () => {
   copyText('Rapport de la session précédente\n\n' + prevLog, $('btnPrev'));
 });
 
+// ---------- Reconnexion sans liste ----------
+async function reconnectKnown() {
+  log('=== Reconnexion sans liste ===', 'blue');
+  setStatus('Recherche d\'un vélo déjà autorisé...', 'waitline');
+  if (!navigator.bluetooth) { fail('Web Bluetooth', new Error('navigator.bluetooth absent')); setStatus('✖ Bluetooth absent.', 'koline'); return; }
+  if (typeof navigator.bluetooth.getDevices !== 'function') {
+    log('getDevices() n\'existe pas dans cette version de Bluefy : la reconnexion sans liste est impossible ici.', 'err');
+    setStatus('✖ Reconnexion sans liste non supportée : utilise « Débrider le vélo ».', 'koline');
+    return;
+  }
+  let list = [];
+  try { list = await navigator.bluetooth.getDevices(); }
+  catch (e) { fail('getDevices', e); setStatus('✖ getDevices a échoué : copie le rapport.', 'koline'); return; }
+  log('getDevices() a renvoyé ' + list.length + ' appareil(s) : ' + (list.map(d => (d.name || '?') + ' ' + d.id).join(' ; ') || 'aucun'), 'info');
+  const d = list.find(x => (x.name || '').startsWith('Fiido'));
+  if (!d) {
+    log('Aucun vélo Fiido déjà autorisé pour cette page. Fais d\'abord une sélection avec « Débrider le vélo ».', 'warn');
+    setStatus('✖ Aucun vélo mémorisé : utilise d\'abord « Débrider le vélo ».', 'koline');
+    return;
+  }
+  $('chkAuto').checked = true;
+  await afterPick(d);
+}
+$('btnRe').addEventListener('click', reconnectKnown);
+// Avec ?auto=1 dans l'adresse, la reconnexion se lance dès l'ouverture de la page.
+if (new URLSearchParams(location.search).get('auto') === '1') setTimeout(reconnectKnown, 600);
+
 // Démarrage
-log('Page v4 chargée. Page sécurisée : ' + window.isSecureContext + ' | Web Bluetooth : ' + !!navigator.bluetooth, 'info');
+log('Page v8 chargée. Page sécurisée : ' + window.isSecureContext + ' | Web Bluetooth : ' + !!navigator.bluetooth, 'info');
 log('Navigateur : ' + navigator.userAgent, 'dim');
 if (prevLog) log('Un rapport de la session précédente est disponible (bouton en bas).', 'dim');
 renderSummary();
