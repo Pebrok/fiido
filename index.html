@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fiido T2 v8 sans liste</title>
+<title>Fiido T2 v9 sans liste</title>
 <style>
   * { box-sizing: border-box; }
   body {
@@ -45,8 +45,8 @@
 </head>
 <body>
 <div class="container">
-  <h1>Fiido T2 v8 sans liste</h1>
-  <div class="version">v8.0 : un tap, ou reconnexion sans liste à tester</div>
+  <h1>Fiido T2 v9 sans liste</h1>
+  <div class="version">v9.0 : reconnexion sans liste avec délais maximum</div>
 
   <div class="panel" id="selftest"></div>
 
@@ -95,7 +95,7 @@ const $ = id => document.getElementById(id);
 const box = $('log-box');
 const lines = [];
 const problems = [];
-const STORE_KEY = 'fiido_t2_v8_log';
+const STORE_KEY = 'fiido_t2_v9_log';
 let prevLog = '';
 try { prevLog = localStorage.getItem(STORE_KEY) || ''; } catch (e) {}
 
@@ -367,7 +367,7 @@ async function afterPick(d) {
     renderSummary();
   });
   try {
-    server = await step('Connexion GATT', () => device.gatt.connect());
+    server = await step('Connexion GATT', () => withTimeout(device.gatt.connect(), 10000, 'connexion GATT sans réponse (vélo allumé et à portée ?)'));
     connectedAt = Date.now();
     services = await step('Liste des services', async () => {
       try { return await server.getPrimaryServices(); }
@@ -420,6 +420,7 @@ async function afterPick(d) {
   } catch (e) {
     if (e !== lastLogged) fail('Erreur inattendue', e);
     log('=== Connexion interrompue. Copie le rapport. ===', 'err');
+    setStatus('✖ Connexion impossible : vélo allumé et à portée ? Sinon utilise « Débrider le vélo ».', 'koline');
   }
   renderSummary();
 }
@@ -440,7 +441,7 @@ $('btnDisc').addEventListener('click', () => { stopHb(); if (device && device.ga
 
 // ---------- Rapports ----------
 function reportText() {
-  return 'Fiido T2 v8 | ' + new Date().toISOString() + '\n' + navigator.userAgent + '\n' +
+  return 'Fiido T2 v9 | ' + new Date().toISOString() + '\n' + navigator.userAgent + '\n' +
     'tx=' + stats.tx + ' txFail=' + stats.txFail + ' hb=' + stats.hb + ' hbFail=' + stats.hbFail + ' rx=' + stats.rx + '\n' +
     'Erreurs : ' + (problems.length ? '\n- ' + problems.join('\n- ') : 'aucune') + '\n\n' + lines.join('\n');
 }
@@ -466,6 +467,9 @@ $('btnPrev').addEventListener('click', () => {
 });
 
 // ---------- Reconnexion sans liste ----------
+function withTimeout(p, ms, label) {
+  return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('DÉLAI DÉPASSÉ (' + ms / 1000 + ' s) : ' + label)), ms))]);
+}
 async function reconnectKnown() {
   log('=== Reconnexion sans liste ===', 'blue');
   setStatus('Recherche d\'un vélo déjà autorisé...', 'waitline');
@@ -476,8 +480,8 @@ async function reconnectKnown() {
     return;
   }
   let list = [];
-  try { list = await navigator.bluetooth.getDevices(); }
-  catch (e) { fail('getDevices', e); setStatus('✖ getDevices a échoué : copie le rapport.', 'koline'); return; }
+  try { list = await withTimeout(navigator.bluetooth.getDevices(), 6000, 'getDevices() ne répond pas'); }
+  catch (e) { fail('getDevices', e); setStatus('✖ getDevices a échoué ou ne répond pas : utilise « Débrider le vélo ».', 'koline'); return; }
   log('getDevices() a renvoyé ' + list.length + ' appareil(s) : ' + (list.map(d => (d.name || '?') + ' ' + d.id).join(' ; ') || 'aucun'), 'info');
   const d = list.find(x => (x.name || '').startsWith('Fiido'));
   if (!d) {
@@ -493,7 +497,7 @@ $('btnRe').addEventListener('click', reconnectKnown);
 if (new URLSearchParams(location.search).get('auto') === '1') setTimeout(reconnectKnown, 600);
 
 // Démarrage
-log('Page v8 chargée. Page sécurisée : ' + window.isSecureContext + ' | Web Bluetooth : ' + !!navigator.bluetooth, 'info');
+log('Page v9 chargée. Page sécurisée : ' + window.isSecureContext + ' | Web Bluetooth : ' + !!navigator.bluetooth, 'info');
 log('Navigateur : ' + navigator.userAgent, 'dim');
 if (prevLog) log('Un rapport de la session précédente est disponible (bouton en bas).', 'dim');
 renderSummary();
