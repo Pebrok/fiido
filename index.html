@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fiido T2 v9 sans liste</title>
+<title>Fiido T2 v10 sans liste</title>
 <style>
   * { box-sizing: border-box; }
   body {
@@ -45,8 +45,8 @@
 </head>
 <body>
 <div class="container">
-  <h1>Fiido T2 v9 sans liste</h1>
-  <div class="version">v9.0 : reconnexion sans liste avec délais maximum</div>
+  <h1>Fiido T2 v10 sans liste</h1>
+  <div class="version">v10.0 : reconnexion sans liste, attente de l'annonce du vélo</div>
 
   <div class="panel" id="selftest"></div>
 
@@ -95,7 +95,7 @@ const $ = id => document.getElementById(id);
 const box = $('log-box');
 const lines = [];
 const problems = [];
-const STORE_KEY = 'fiido_t2_v9_log';
+const STORE_KEY = 'fiido_t2_v10_log';
 let prevLog = '';
 try { prevLog = localStorage.getItem(STORE_KEY) || ''; } catch (e) {}
 
@@ -367,7 +367,14 @@ async function afterPick(d) {
     renderSummary();
   });
   try {
-    server = await step('Connexion GATT', () => withTimeout(device.gatt.connect(), 10000, 'connexion GATT sans réponse (vélo allumé et à portée ?)'));
+    server = await step('Connexion GATT', async () => {
+      let last;
+      for (let n = 1; n <= 4; n++) {
+        try { return await withTimeout(device.gatt.connect(), 10000, 'connexion GATT sans réponse (vélo allumé et à portée ?)'); }
+        catch (e) { last = e; log('Tentative ' + n + '/4 échouée (' + (e && e.message ? e.message : e) + ')', 'warn'); if (n < 4) await new Promise(r => setTimeout(r, 1500)); }
+      }
+      throw last;
+    });
     connectedAt = Date.now();
     services = await step('Liste des services', async () => {
       try { return await server.getPrimaryServices(); }
@@ -441,7 +448,7 @@ $('btnDisc').addEventListener('click', () => { stopHb(); if (device && device.ga
 
 // ---------- Rapports ----------
 function reportText() {
-  return 'Fiido T2 v9 | ' + new Date().toISOString() + '\n' + navigator.userAgent + '\n' +
+  return 'Fiido T2 v10 | ' + new Date().toISOString() + '\n' + navigator.userAgent + '\n' +
     'tx=' + stats.tx + ' txFail=' + stats.txFail + ' hb=' + stats.hb + ' hbFail=' + stats.hbFail + ' rx=' + stats.rx + '\n' +
     'Erreurs : ' + (problems.length ? '\n- ' + problems.join('\n- ') : 'aucune') + '\n\n' + lines.join('\n');
 }
@@ -489,6 +496,17 @@ async function reconnectKnown() {
     setStatus('✖ Aucun vélo mémorisé : utilise d\'abord « Débrider le vélo ».', 'koline');
     return;
   }
+  if (typeof d.watchAdvertisements === 'function') {
+    log('watchAdvertisements() disponible : attente d\'une annonce du vélo (8 s max)...', 'info');
+    try {
+      await new Promise((res, rej) => {
+        const t = setTimeout(() => rej(new Error('aucune annonce reçue en 8 s')), 8000);
+        d.addEventListener('advertisementreceived', () => { clearTimeout(t); res(); }, { once: true });
+        d.watchAdvertisements().catch(e => { clearTimeout(t); rej(e); });
+      });
+      log('Annonce du vélo reçue.', 'ok');
+    } catch (e) { log('watchAdvertisements : ' + (e && e.message ? e.message : e), 'warn'); }
+  } else log('watchAdvertisements() absent dans ce Bluefy : connexion directe, avec nouvelles tentatives.', 'info');
   $('chkAuto').checked = true;
   await afterPick(d);
 }
@@ -497,7 +515,7 @@ $('btnRe').addEventListener('click', reconnectKnown);
 if (new URLSearchParams(location.search).get('auto') === '1') setTimeout(reconnectKnown, 600);
 
 // Démarrage
-log('Page v9 chargée. Page sécurisée : ' + window.isSecureContext + ' | Web Bluetooth : ' + !!navigator.bluetooth, 'info');
+log('Page v10 chargée. Page sécurisée : ' + window.isSecureContext + ' | Web Bluetooth : ' + !!navigator.bluetooth, 'info');
 log('Navigateur : ' + navigator.userAgent, 'dim');
 if (prevLog) log('Un rapport de la session précédente est disponible (bouton en bas).', 'dim');
 renderSummary();
