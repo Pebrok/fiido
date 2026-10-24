@@ -1,524 +1,97 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fiido T2 v10 sans liste</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fiido T2</title>
+<script>
+// Safari + extension beacio : charge le script de liaison seulement si le navigateur n'a pas Web Bluetooth.
+if (!navigator.bluetooth) document.write('<script src="https://ioswebble.com/webble.js"><\/script>');
+</script>
 <style>
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; padding: 14px; background: #0f1216; color: #d5dae0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    display: flex; justify-content: center;
-  }
-  .container { width: 100%; max-width: 520px; background: #171b21; border: 1px solid #2b323b; border-radius: 8px; padding: 16px; }
-  h1 { font-size: 1.15rem; margin: 0 0 2px; color: #f2f4f7; }
-  h2 { font-size: 0.85rem; margin: 14px 0 0; color: #f2f4f7; }
-  .version { font-size: 0.75rem; color: #8a94a0; margin-bottom: 8px; }
-  button {
-    width: 100%; margin-top: 8px; padding: 12px; border: 0; border-radius: 6px;
-    background: #2f7d4f; color: #fff; font-size: 0.92rem; font-weight: 600;
-  }
-  button:disabled { background: #2b323b; color: #6c7682; }
-  button.secondary { background: #232932; border: 1px solid #2b323b; color: #d5dae0; }
-  .row { display: flex; gap: 8px; }
-  .row button { flex: 1; }
-  .hint { font-size: 0.75rem; color: #8a94a0; margin-top: 4px; line-height: 1.4; }
-  label.check { display: flex; gap: 8px; margin-top: 12px; font-size: 0.8rem; align-items: flex-start; }
-  label.check input { margin-top: 3px; }
-  select {
-    width: 100%; margin-top: 6px; padding: 9px; background: #0f1216; color: #d5dae0;
-    border: 1px solid #2b323b; border-radius: 6px; font-size: 0.85rem;
-  }
-  .panel { margin-top: 10px; padding: 10px; background: #0f1216; border: 1px solid #2b323b; border-radius: 6px; font-size: 0.78rem; line-height: 1.5; }
-  .okline { color: #7ee787; } .koline { color: #ff7b72; } .waitline { color: #d29922; }
-  #log-box {
-    margin-top: 12px; height: 320px; overflow-y: auto; background: #07090c;
-    border: 1px solid #2b323b; border-radius: 6px; padding: 8px;
-    font-family: ui-monospace, Menlo, monospace; font-size: 0.68rem; line-height: 1.45; word-break: break-all;
-  }
-  #log-box .info { color: #b6bdc6; } #log-box .blue { color: #58a6ff; } #log-box .ok { color: #7ee787; }
-  #log-box .err { color: #ff7b72; } #log-box .warn { color: #d29922; } #log-box .tx { color: #f0a35e; }
-  #log-box .rx { color: #c297ff; } #log-box .dim { color: #6c7682; }
-  button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid #58a6ff; outline-offset: 2px; }
+  body { font-family: -apple-system, sans-serif; background: #111; color: #eee; margin: 0; padding: 16px; }
+  h1 { font-size: 1.3rem; margin: 0 0 12px; }
+  #go { width: 100%; padding: 28px; font-size: 1.4rem; font-weight: 700; border: 0; border-radius: 14px; background: #2e7d4f; color: #fff; }
+  #go:disabled { opacity: .5; }
+  #st { margin: 14px 0; padding: 14px; border-radius: 10px; background: #1c1c1e; font-size: 1.05rem; }
+  .ok { color: #6fdc8c; } .ko { color: #ff6b6b; } .wait { color: #e0b84a; }
+  #log { white-space: pre-wrap; font: 12px ui-monospace, monospace; color: #999; background: #1c1c1e; border-radius: 10px; padding: 10px; max-height: 40vh; overflow: auto; }
+  #cp { margin-top: 10px; padding: 12px; width: 100%; border: 0; border-radius: 10px; background: #2c2c2e; color: #eee; font-size: 1rem; }
 </style>
 </head>
 <body>
-<div class="container">
-  <h1>Fiido T2 v10 sans liste</h1>
-  <div class="version">v10.0 : reconnexion sans liste, attente de l'annonce du vélo</div>
-
-  <div class="panel" id="selftest"></div>
-
-  <div id="status" class="panel" style="font-size:0.95rem;font-weight:600">Prêt. Vélo allumé, app Fiido fermée.</div>
-  <button id="btnGo" style="padding:20px;font-size:1.1rem">Débrider le vélo</button>
-  <div class="hint">Un seul tap : tu choisis le vélo dans la liste, puis A et B s'envoient seules. Le vélo revient à 25 km/h dès qu'on l'éteint, donc à refaire à chaque allumage.</div>
-
-  <button id="btnRe" class="secondary">Reconnexion sans liste (test)</button>
-  <div class="hint">À tester après avoir choisi le vélo au moins une fois avec « Débrider le vélo », en gardant activé l'interrupteur « futures connexions en arrière-plan » de la fenêtre de sélection.</div>
-
-  <h2>Options avancées : choisir le vélo autrement</h2>
-  <div class="hint">Chaque bouton ouvre la liste d'appareils avec des paramètres différents. Essaie-les dans l'ordre jusqu'à ce que la liste s'ouvre.</div>
-  <button id="btnPick1">1a. Filtre « Fiido » + services (échoue avec le code 2 sur ton Bluefy)</button>
-  <button id="btnPick2" class="secondary">1b. Tous les appareils Bluetooth, avec service FFE0</button>
-  <button id="btnPick3" class="secondary">1c. Tous les appareils, sans aucun service</button>
-  <button id="btnAvail" class="secondary">Tester si Bluetooth est disponible</button>
-
-  <h2>2. Envoyer les commandes</h2>
-  <label class="check"><input type="checkbox" id="chkHb">
-    <span>Envoyer aussi la trame de fond (46 64 55 26 1c 4d) toutes les 0,5 s, comme dans la capture (désactivée par défaut : la v2.3 marchait sans)</span></label>
-  <label class="check"><input type="checkbox" id="chkAuto" checked>
-    <span>Après la connexion : lire l'état, envoyer A puis B (1,5 s), puis enregistrer 5 s, le tout automatiquement</span></label>
-  <div class="hint" style="margin-top:12px">Format des trames envoyées</div>
-  <select id="selFmt">
-    <option value="19">19 octets, comme la v2.3 (a débloqué l'accélérateur)</option>
-    <option value="7">7 octets, valeur exacte de la capture Pixel</option>
-  </select>
-  <select id="selChar"><option>(choisis d'abord le vélo)</option></select>
-  <div class="row">
-    <button id="btnA" disabled>Envoyer A</button>
-    <button id="btnB" disabled>Envoyer B</button>
-  </div>
-  <button id="btnSeq" disabled>A puis B (1,5 s)</button>
-  <button id="btnDisc" class="secondary" disabled>Déconnecter</button>
-
-  <div class="panel" id="summary"></div>
-  <div id="log-box"></div>
-  <textarea id="out" readonly rows="8" style="display:none;width:100%;margin-top:10px;background:#07090c;color:#b6bdc6;border:1px solid #2b323b;border-radius:6px;font-family:ui-monospace,Menlo,monospace;font-size:0.65rem"></textarea>
-  <button id="btnCopy" class="secondary">Copier le rapport complet</button>
-  <button id="btnShare" class="secondary">Partager le rapport (Notes, Messages...)</button>
-  <button id="btnPrev" class="secondary">Copier le rapport d'avant le rechargement</button>
-</div>
+<h1>Fiido T2</h1>
+<button id="go">Débrider le vélo</button>
+<div id="st">Vélo allumé, app Fiido fermée. Appuie, puis choisis « Fiido_T2 ».</div>
+<div id="log"></div>
+<button id="cp">Copier le journal</button>
 
 <script>
 const $ = id => document.getElementById(id);
-const box = $('log-box');
-const lines = [];
-const problems = [];
-const STORE_KEY = 'fiido_t2_v10_log';
-let prevLog = '';
-try { prevLog = localStorage.getItem(STORE_KEY) || ''; } catch (e) {}
-
-// ---------- Journal (sauvegardé dans le navigateur à chaque ligne) ----------
-let saveTimer = null;
-function persist() {
-  if (saveTimer) return;
-  saveTimer = setTimeout(() => {
-    saveTimer = null;
-    try { localStorage.setItem(STORE_KEY, lines.slice(-4000).join('\n')); } catch (e) {}
-  }, 300);
-}
-function ts() {
-  const d = new Date();
-  return d.toTimeString().slice(0, 8) + '.' + String(d.getMilliseconds()).padStart(3, '0');
-}
-function log(msg, type = 'info') {
-  const line = '[' + ts() + '] ' + msg;
-  lines.push(line);
-  if (lines.length > 8000) lines.shift();
-  const div = document.createElement('div');
-  div.className = type; div.textContent = line;
-  box.appendChild(div);
-  while (box.childNodes.length > 1500) box.removeChild(box.firstChild);
-  box.scrollTop = box.scrollHeight;
-  persist();
-}
-function hex(x) {
-  const u = x instanceof DataView ? new Uint8Array(x.buffer, x.byteOffset, x.byteLength) : new Uint8Array(x);
-  return Array.from(u).map(b => b.toString(16).padStart(2, '0')).join(' ');
-}
-function short(u) {
-  return (u.startsWith('0000') && u.endsWith('-0000-1000-8000-00805f9b34fb')) ? u.slice(4, 8) : u;
-}
-
-// ---------- Trames (octets lus dans la capture Pixel) ----------
-// Dernier octet = XOR de tous les précédents (vérifié sur les 12 trames différentes de la capture).
-function makeFrame(bytes) { let x = 0; for (const b of bytes) x ^= b; return new Uint8Array([...bytes, x]); }
-// Enveloppe identique à celle de la v2.3 : 02 41 00 [acl] 00 [l2cap] 00 04 00 52 10 00 + valeur.
-function wrap19(v) {
-  const att = 3 + v.length, acl = 4 + att;
-  return new Uint8Array([0x02, 0x41, 0x00, acl, 0x00, att, 0x00, 0x04, 0x00, 0x52, 0x10, 0x00, ...v]);
-}
-const V23_PAYLOAD = '02 41 00 0e 00 0a 00 04 00 52 10 00 46 64 aa 01 2c 61 c4';
-const FRAMES = {
-  A:  { bytes: makeFrame([0x46, 0x64, 0xaa, 0x01, 0x2c, 0x61]), expect: '46 64 aa 01 2c 61 c4' },
-  B:  { bytes: makeFrame([0x46, 0x64, 0xaa, 0x01, 0x27, 0x80]), expect: '46 64 aa 01 27 80 2e' },
-  HB: { bytes: makeFrame([0x46, 0x64, 0x55, 0x26, 0x1c]),       expect: '46 64 55 26 1c 4d' }
-};
-(function () {
-  let html = '<b>Auto-test des trames</b>';
-  for (const k of Object.keys(FRAMES)) {
-    const got = hex(FRAMES[k].bytes), ok = got === FRAMES[k].expect;
-    html += '<div class="' + (ok ? 'okline' : 'koline') + '">' + (ok ? '✔' : '✖') + ' ' + k + ' : ' + got + '</div>';
-  }
-  const w = hex(wrap19(FRAMES.A.bytes)), wok = w === V23_PAYLOAD;
-  html += '<div class="' + (wok ? 'okline' : 'koline') + '">' + (wok ? '✔' : '✖') + ' A en 19 octets identique à la v2.3</div>';
-  $('selftest').innerHTML = html;
-})();
-
-// ---------- État ----------
-const FFE0_LONG = '0000ffe0-0000-1000-8000-00805f9b34fb';
-let device = null, server = null, services = [], charList = [];
-let connectedAt = 0, queue = Promise.resolve(), pending = 0, hbTimer = null, hbFails = 0;
-const stats = { tx: 0, txFail: 0, hb: 0, hbFail: 0, rx: 0 };
-const lastRx = {}, sameRx = {};
-let lastLogged = null;
-
-// ---------- Erreurs ----------
-function describe(e) {
-  const p = [];
-  try {
-    p.push('type=' + typeof e);
-    if (e && e.constructor) p.push('classe=' + e.constructor.name);
-    if (e && e.code !== undefined) p.push('code=' + e.code);
-    if (e && typeof e === 'object') Object.getOwnPropertyNames(e).forEach(k => {
-      if (k !== 'stack') { try { p.push(k + '=' + JSON.stringify(e[k])); } catch (x) {} }
-    });
-    p.push('texte=' + String(e));
-  } catch (x) { p.push('(description impossible)'); }
-  return p.join(' | ');
-}
-function hint(e) {
-  const n = (e && e.name) || '', m = String((e && e.message) !== undefined ? e.message : e);
-  if (typeof e === 'number' || /^\d+$/.test(m))
-    return 'Bluefy renvoie un simple code numérique (« ' + m + ' »), sans texte. Sa signification n\'est pas documentée à ma connaissance.';
-  if (n === 'NotFoundError' && /cancel|chosen|no device|user/i.test(m)) return 'sélection annulée, ou aucun appareil visible. Vélo allumé et proche ? App Fiido fermée ?';
-  if (n === 'NotFoundError') return 'service ou caractéristique absent du vélo, ou UUID différent.';
-  if (n === 'SecurityError' || n === 'NotAllowedError') return 'accès refusé : UUID non déclaré, page non sécurisée, ou appel hors d\'un tap.';
-  if (n === 'NetworkError') return 'opération GATT échouée ou liaison coupée : vélo éteint ou hors de portée, déjà connecté ailleurs, ou autre opération en cours.';
-  if (n === 'InvalidStateError') return 'connexion perdue avant l\'opération : reconnecter.';
-  if (n === 'NotSupportedError') return 'opération non supportée par cette caractéristique ou par Bluefy.';
-  if (n === 'TypeError') return 'erreur de code ou fonction absente dans ce navigateur.';
-  return 'erreur non classée : copie le rapport complet.';
-}
-function fail(name, e) {
-  lastLogged = e;
-  const nm = (e && e.name) || (typeof e), ms = (e && e.message !== undefined) ? e.message : e;
-  log('✖ ' + name + ' → ' + nm + ' : ' + ms, 'err');
-  log('  détail : ' + describe(e), 'dim');
-  log('  causes possibles : ' + hint(e), 'warn');
-  problems.push(name + ' → ' + nm + ' : ' + ms);
-  renderSummary();
-}
-async function step(name, fn) {
-  log('▶ ' + name, 'blue');
-  try { const r = await fn(); log('✔ ' + name, 'ok'); return r; }
-  catch (e) { fail(name, e); throw e; }
-}
-
-// ---------- Synthèse ----------
-function renderSummary() {
-  const items = [];
-  const ffe1 = charList.find(x => x.c.uuid.startsWith('0000ffe1'));
-  const conn = !!(server && server.connected);
-  items.push([conn ? 'ok' : 'wait', 'Connexion GATT ' + (conn ? 'active' : 'inactive')]);
-  items.push([services.some(s => s.uuid.startsWith('0000ffe0')) ? 'ok' : 'wait', 'Service FFE0']);
-  items.push([ffe1 ? 'ok' : 'wait', 'Caractéristique FFE1']);
-  if (ffe1) items.push([ffe1.c.properties.writeWithoutResponse ? 'ok' : 'ko',
-    'FFE1 writeWithoutResponse ' + (ffe1.c.properties.writeWithoutResponse ? 'supporté' : 'non supporté')]);
-  items.push([stats.txFail === 0 ? 'ok' : 'ko', 'Commandes : ' + stats.tx + ' envoyée(s), ' + stats.txFail + ' échec(s)']);
-  items.push([stats.hbFail === 0 ? 'ok' : 'ko', 'Trame de fond : ' + stats.hb + ' envoyée(s), ' + stats.hbFail + ' échec(s)']);
-  items.push([stats.rx > 0 ? 'ok' : 'wait', 'Notifications du vélo : ' + stats.rx]);
-  let html = '<b>Diagnostic</b>';
-  for (const [s, t] of items) html += '<div class="' + (s === 'ok' ? 'okline' : s === 'ko' ? 'koline' : 'waitline') + '">' + (s === 'ok' ? '✔' : s === 'ko' ? '✖' : '…') + ' ' + t + '</div>';
-  if (problems.length) {
-    html += '<div style="margin-top:6px"><b>Erreurs (' + problems.length + ')</b></div>';
-    problems.slice(-5).forEach(p => { html += '<div class="koline">' + p.replace(/</g, '&lt;') + '</div>'; });
-  }
-  $('summary').innerHTML = html;
-}
-
-// ---------- Envoi (une écriture GATT à la fois) ----------
-function currentChar() { const x = charList[Number($('selChar').value)]; return x ? x.c : null; }
-function send(name, frame, quiet) {
-  pending++;
-  const job = queue.then(async () => {
-    if (!server || !server.connected) { const e = new Error('vélo non connecté'); e.name = 'InvalidStateError'; throw e; }
-    const c = currentChar();
-    if (!c) { const e = new Error('aucune caractéristique sélectionnée'); e.name = 'NotFoundError'; throw e; }
-    const out = $('selFmt').value === '19' ? wrap19(frame) : frame;
-    const t0 = performance.now();
-    if (c.properties.writeWithoutResponse && c.writeValueWithoutResponse) await c.writeValueWithoutResponse(out);
-    else await c.writeValue(out);
-    log('TX ' + name + ' : ' + hex(out) + ' (' + Math.round(performance.now() - t0) + ' ms)', name === 'HB' ? 'dim' : 'tx');
-  });
-  queue = job.catch(() => {}).then(() => { pending--; });
-  return job;
-}
-async function sendCmd(name) {
-  try { await step('Envoi ' + name, () => send(name, FRAMES[name].bytes, false)); stats.tx++; }
-  catch (e) { stats.txFail++; throw e; }
-  finally { renderSummary(); }
-}
-function startHb() {
-  stopHb();
-  if (!$('chkHb').checked) return;
-  hbFails = 0;
-  hbTimer = setInterval(async () => {
-    if (pending > 0 || !server || !server.connected) return;
-    try {
-      await send('HB', FRAMES.HB.bytes, false);
-      stats.hb++; hbFails = 0;
-    } catch (e) {
-      stats.hbFail++; hbFails++;
-      if (hbFails <= 2) fail('Trame de fond', e);
-      if (hbFails >= 3) { stopHb(); log('Trame de fond arrêtée après 3 échecs de suite.', 'warn'); }
-    }
-    if (stats.hb % 10 === 0) renderSummary();
-  }, 500);
-}
-function stopHb() { if (hbTimer) { clearInterval(hbTimer); hbTimer = null; } }
-$('chkHb').addEventListener('change', () => { if (server && server.connected) { $('chkHb').checked ? startHb() : stopHb(); } });
-
-function onNotif(ev) {
-  const c = ev.target, h = hex(c.value), k = c.uuid;
-  stats.rx++;
-  log('RX ' + short(k) + ' : ' + h, 'rx');
-  renderSummary();
-}
-function flagsOf(p) { return ['read', 'write', 'writeWithoutResponse', 'notify', 'indicate'].filter(k => p[k]).join(','); }
-
-// ---------- Étape 1 : sélection. requestDevice est appelé DIRECTEMENT dans le tap. ----------
-function pick(label, opts) {
-  log('=== Sélection : ' + label + ' ===', 'blue');
-  if (!navigator.bluetooth) { fail('Web Bluetooth', new Error('navigator.bluetooth absent : ouvre la page dans Bluefy')); return; }
-  let p;
-  try { p = navigator.bluetooth.requestDevice(opts); }
-  catch (e) { fail('requestDevice (appel immédiat)', e); return; }
-  log('requestDevice appelé, en attente de la liste d\'appareils...', 'dim');
-  p.then(d => afterPick(d), e => {
-    fail('requestDevice (' + label + ')', e);
-    log('Essaie le bouton suivant (1b, puis 1c), ou copie le rapport.', 'warn');
-    setStatus('✖ Sélection impossible : copie le rapport.', 'koline');
-  });
-}
-// Paramètres recopiés mot pour mot de la v2.3.
-$('btnGo').addEventListener('click', () => {
-  $('chkAuto').checked = true;
-  setStatus('Choisis le vélo dans la liste...', 'waitline');
-  pick('un tap : tous les appareils, sans service', { acceptAllDevices: true });
-});
-$('btnPick1').addEventListener('click', () => pick('identique à la v2.3', {
-  filters: [{ namePrefix: 'Fiido' }],
-  optionalServices: [0xFFE0, 0xFFE1, '0000ffe0-0000-1000-8000-00805f9b34fb', '0000ffe1-0000-1000-8000-00805f9b34fb']
-}));
-$('btnPick2').addEventListener('click', () => pick('tous les appareils + FFE0', {
-  acceptAllDevices: true, optionalServices: [0xFFE0, FFE0_LONG] }));
-$('btnPick3').addEventListener('click', () => pick('tous les appareils, sans service', {
-  acceptAllDevices: true }));
-$('btnAvail').addEventListener('click', async () => {
-  log('=== Test de disponibilité Bluetooth ===', 'blue');
-  log('Page sécurisée : ' + window.isSecureContext + ' | navigator.bluetooth : ' + !!navigator.bluetooth, 'info');
-  if (!navigator.bluetooth) { log('navigator.bluetooth absent.', 'err'); return; }
-  try {
-    if (navigator.bluetooth.getAvailability) log('getAvailability() = ' + await navigator.bluetooth.getAvailability(), 'info');
-    else log('getAvailability() non disponible dans ce navigateur.', 'warn');
-  } catch (e) { fail('getAvailability', e); }
-});
-
-// ---------- Séquence automatique ----------
+const SVC = '00010203-0405-0607-0809-0a0b0c0dffe0';
+const SVC2 = '0000fe59-0000-1000-8000-00805f9b34fb';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-async function readAll(tag) {
-  for (const x of charList) {
-    if (!x.c.properties.read) continue;
-    try { const v = await x.c.readValue(); log('READ ' + tag + ' ' + short(x.c.uuid) + ' : ' + hex(v), 'rx'); }
-    catch (e) { log('READ ' + tag + ' ' + short(x.c.uuid) + ' échec : ' + e, 'dim'); }
-  }
+const hex = u => [...u].map(b => b.toString(16).padStart(2, '0')).join(' ');
+const t0 = () => new Date().toISOString().slice(11, 23);
+let text = 'Fiido T2 simple | ' + new Date().toISOString() + '\n' + navigator.userAgent + '\n';
+function log(m) { const l = '[' + t0() + '] ' + m; text += l + '\n'; $('log').textContent += l + '\n'; $('log').scrollTop = 1e9; }
+function status(m, c) { $('st').className = c || ''; $('st').textContent = m; }
+function err(e) { return e && e.name ? e.name + ' : ' + (e.message || '') : 'code ' + e; }
+
+// Trames : dernier octet = XOR des précédents. Enveloppe 19 octets comme la v2.3 qui a fonctionné.
+function frame(b) { let x = 0; for (const v of b) x ^= v; return new Uint8Array([...b, x]); }
+function wrap(v) { const att = 3 + v.length; return new Uint8Array([0x02, 0x41, 0x00, 4 + att, 0x00, att, 0x00, 0x04, 0x00, 0x52, 0x10, 0x00, ...v]); }
+const A = wrap(frame([0x46, 0x64, 0xaa, 0x01, 0x2c, 0x61]));
+const B = wrap(frame([0x46, 0x64, 0xaa, 0x01, 0x27, 0x80]));
+
+async function write(c, data, name) {
+  if (c.properties.writeWithoutResponse && c.writeValueWithoutResponse) await c.writeValueWithoutResponse(data);
+  else await c.writeValue(data);
+  log('Envoi ' + name + ' : ' + hex(data));
 }
-function setStatus(t, cls) { const el = $('status'); el.textContent = t; el.className = 'panel ' + (cls || ''); }
-function finish() {
-  if (stats.txFail === 0 && stats.tx >= 2) setStatus('✔ A et B envoyées sans erreur. Teste l\'accélérateur.', 'okline');
-  else setStatus('✖ Échec : copie le rapport et colle-le à Claude.', 'koline');
-  stopHb();
-  log('Trame de fond arrêtée. Connexion laissée ouverte.', 'dim');
-  renderSummary();
-  log('=== FIN. Copie le rapport (bouton ou zone de texte en bas). ===', 'ok');
-  const o = $('out'); o.style.display = 'block'; o.value = reportText();
-}
-async function runAuto() {
-  log('=== AUTO : séquence de débridage ===', 'blue');
-  setStatus('Envoi en cours, ne ferme pas la page...', 'waitline');
-  await readAll('avant');
-  log('Enregistrement de l\'état de base pendant 1 s...', 'dim');
-  await sleep(1000);
+
+async function run() {
+  $('go').disabled = true;
   try {
-    await sendCmd('A');
-    log('A envoyée. Pause 1500 ms.', 'dim');
+    if (!navigator.bluetooth) throw new Error('Web Bluetooth indisponible dans ce navigateur (Bluefy, ou Safari avec beacio activé).');
+    status('Choisis « Fiido_T2 » dans la liste…', 'wait');
+    // Bluefy refuse les listes de services (code 2) ; l'extension Safari en a besoin.
+    const opts = /Bluefy/.test(navigator.userAgent) ? { acceptAllDevices: true } : { acceptAllDevices: true, optionalServices: [SVC, SVC2] };
+    const dev = await navigator.bluetooth.requestDevice(opts);
+    log('Appareil : ' + (dev.name || '?'));
+    status('Connexion…', 'wait');
+    const srv = await dev.gatt.connect();
+    const svcs = await srv.getPrimaryServices();
+    let wc = null, nc = null;
+    for (const s of svcs) {
+      log('Service ' + s.uuid);
+      for (const c of await s.getCharacteristics()) {
+        log('  ' + c.uuid + (c.properties.write ? ' W' : '') + (c.properties.writeWithoutResponse ? ' w' : '') + (c.properties.notify ? ' N' : ''));
+        if (!wc && (c.properties.write || c.properties.writeWithoutResponse)) wc = c;
+        if (!nc && s.uuid === SVC && c.properties.notify) nc = c;
+      }
+    }
+    if (!wc) throw new Error('Aucune caractéristique écrivable trouvée.');
+    log('Écriture sur ' + wc.uuid);
+    if (nc) { try { await nc.startNotifications(); } catch (e) { log('Notifications : ' + err(e)); } }
+    status('Envoi A…', 'wait');
+    await sleep(1000);
+    await write(wc, A, 'A');
     await sleep(1500);
-    await sendCmd('B');
-    log('B envoyée. Enregistrement pendant 5 s...', 'ok');
-    await sleep(5000);
-    await readAll('après');
+    status('Envoi B…', 'wait');
+    await write(wc, B, 'B');
+    status('✔ Envoyé. Essaie l\'accélérateur.', 'ok');
   } catch (e) {
-    log('AUTO interrompu à cause de l\'erreur ci-dessus (B n\'est pas envoyée si A échoue).', 'err');
+    log('✖ ' + err(e));
+    status('✖ ' + err(e), 'ko');
   }
-  finish();
+  $('go').disabled = false;
 }
-
-// ---------- Étape 2 : connexion et exploration, après la sélection ----------
-async function afterPick(d) {
-  device = d;
-  log('Appareil choisi : ' + (device.name || '(sans nom)') + ' | id ' + device.id, 'ok');
-  device.addEventListener('gattserverdisconnected', () => {
-    const s = connectedAt ? ((Date.now() - connectedAt) / 1000).toFixed(1) + ' s' : '?';
-    log('⚠ Vélo déconnecté (connexion tenue ' + s + ').', 'warn');
-    stopHb();
-    ['btnA', 'btnB', 'btnSeq', 'btnDisc'].forEach(i => $(i).disabled = true);
-    renderSummary();
-  });
-  try {
-    server = await step('Connexion GATT', async () => {
-      let last;
-      for (let n = 1; n <= 4; n++) {
-        try { return await withTimeout(device.gatt.connect(), 10000, 'connexion GATT sans réponse (vélo allumé et à portée ?)'); }
-        catch (e) { last = e; log('Tentative ' + n + '/4 échouée (' + (e && e.message ? e.message : e) + ')', 'warn'); if (n < 4) await new Promise(r => setTimeout(r, 1500)); }
-      }
-      throw last;
-    });
-    connectedAt = Date.now();
-    services = await step('Liste des services', async () => {
-      try { return await server.getPrimaryServices(); }
-      catch (e) {
-        log('getPrimaryServices() a échoué (' + e + '), essai direct de FFE0', 'warn');
-        return [await server.getPrimaryService(0xFFE0)];
-      }
-    });
-    charList = [];
-    $('selChar').innerHTML = '';
-    for (const s of services) {
-      log('Service ' + short(s.uuid), 'blue');
-      let chars = [];
-      try { chars = await s.getCharacteristics(); }
-      catch (e) { fail('Caractéristiques du service ' + short(s.uuid), e); continue; }
-      chars.forEach((c, i) => {
-        log('  car. #' + i + ' ' + short(c.uuid) + ' [' + flagsOf(c.properties) + ']', 'info');
-        charList.push({ c, svc: s.uuid, idx: i });
-      });
-    }
-    let pre = -1;
-    charList.forEach((x, n) => {
-      if (x.c.properties.write || x.c.properties.writeWithoutResponse) {
-        const o = document.createElement('option');
-        o.value = n;
-        o.textContent = short(x.c.uuid) + ' (service ' + short(x.svc) + ', #' + x.idx + ') [' + flagsOf(x.c.properties) + ']';
-        $('selChar').appendChild(o);
-        if (x.c.uuid.startsWith('0000ffe1')) pre = n;
-      }
-    });
-    if (pre >= 0) $('selChar').value = String(pre);
-    if (!$('selChar').options.length) {
-      const e = new Error('aucune caractéristique écrivable trouvée'); e.name = 'NotFoundError'; fail('Choix de la caractéristique', e); return;
-    }
-    if (pre < 0) log('FFE1 introuvable : une autre caractéristique est présélectionnée, vérifie la liste.', 'warn');
-    for (const x of charList) {
-      if (x.c.properties.notify || x.c.properties.indicate) {
-        try {
-          await x.c.startNotifications();
-          x.c.addEventListener('characteristicvaluechanged', onNotif);
-          log('Notifications activées sur ' + short(x.c.uuid), 'ok');
-        } catch (e) { fail('Notifications sur ' + short(x.c.uuid), e); }
-      }
-    }
-    ['btnA', 'btnB', 'btnSeq', 'btnDisc'].forEach(i => $(i).disabled = false);
-    startHb();
-    log('Prêt.', 'ok');
-    if ($('chkAuto').checked) await runAuto();
-    else log('Mode auto désactivé : utilise Envoyer A puis Envoyer B.', 'info');
-  } catch (e) {
-    if (e !== lastLogged) fail('Erreur inattendue', e);
-    log('=== Connexion interrompue. Copie le rapport. ===', 'err');
-    setStatus('✖ Connexion impossible : vélo allumé et à portée ? Sinon utilise « Débrider le vélo ».', 'koline');
-  }
-  renderSummary();
-}
-
-// ---------- Commandes ----------
-$('btnA').addEventListener('click', async () => { try { await sendCmd('A'); } catch (e) {} });
-$('btnB').addEventListener('click', async () => { try { await sendCmd('B'); } catch (e) {} });
-$('btnSeq').addEventListener('click', async () => {
-  log('=== Séquence A puis B (1500 ms) ===', 'blue');
-  try {
-    await sendCmd('A');
-    await new Promise(r => setTimeout(r, 1500));
-    await sendCmd('B');
-    log('Séquence envoyée. Déconnecte ici, ouvre l\'app Fiido et regarde si le mode fusée est actif.', 'ok');
-  } catch (e) { log('Séquence interrompue à cause de l\'erreur ci-dessus.', 'err'); }
+$('go').addEventListener('click', run);
+$('cp').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(text); $('cp').textContent = 'Copié ✔'; }
+  catch (e) { $('cp').textContent = 'Copie impossible : sélectionne le journal à la main'; }
 });
-$('btnDisc').addEventListener('click', () => { stopHb(); if (device && device.gatt.connected) device.gatt.disconnect(); });
-
-// ---------- Rapports ----------
-function reportText() {
-  return 'Fiido T2 v10 | ' + new Date().toISOString() + '\n' + navigator.userAgent + '\n' +
-    'tx=' + stats.tx + ' txFail=' + stats.txFail + ' hb=' + stats.hb + ' hbFail=' + stats.hbFail + ' rx=' + stats.rx + '\n' +
-    'Erreurs : ' + (problems.length ? '\n- ' + problems.join('\n- ') : 'aucune') + '\n\n' + lines.join('\n');
-}
-async function copyText(text, btn) {
-  const old = btn.textContent;
-  try { await navigator.clipboard.writeText(text); btn.textContent = 'Copié'; }
-  catch (e) {
-    const ta = document.createElement('textarea');
-    ta.value = text; document.body.appendChild(ta); ta.select();
-    try { document.execCommand('copy'); btn.textContent = 'Copié'; } catch (e2) { btn.textContent = 'Copie impossible'; }
-    document.body.removeChild(ta);
-  }
-  setTimeout(() => { btn.textContent = old; }, 2000);
-}
-$('btnCopy').addEventListener('click', () => copyText(reportText(), $('btnCopy')));
-$('btnShare').addEventListener('click', async () => {
-  if (navigator.share) { try { await navigator.share({ title: 'Rapport Fiido T2', text: reportText() }); } catch (e) { log('Partage annulé ou refusé : ' + e, 'warn'); } }
-  else log('Le partage n\'est pas disponible ici : utilise « Copier le rapport complet ».', 'warn');
-});
-$('btnPrev').addEventListener('click', () => {
-  if (!prevLog) { log('Aucun rapport d\'une session précédente n\'a été sauvegardé.', 'warn'); return; }
-  copyText('Rapport de la session précédente\n\n' + prevLog, $('btnPrev'));
-});
-
-// ---------- Reconnexion sans liste ----------
-function withTimeout(p, ms, label) {
-  return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('DÉLAI DÉPASSÉ (' + ms / 1000 + ' s) : ' + label)), ms))]);
-}
-async function reconnectKnown() {
-  log('=== Reconnexion sans liste ===', 'blue');
-  setStatus('Recherche d\'un vélo déjà autorisé...', 'waitline');
-  if (!navigator.bluetooth) { fail('Web Bluetooth', new Error('navigator.bluetooth absent')); setStatus('✖ Bluetooth absent.', 'koline'); return; }
-  if (typeof navigator.bluetooth.getDevices !== 'function') {
-    log('getDevices() n\'existe pas dans cette version de Bluefy : la reconnexion sans liste est impossible ici.', 'err');
-    setStatus('✖ Reconnexion sans liste non supportée : utilise « Débrider le vélo ».', 'koline');
-    return;
-  }
-  let list = [];
-  try { list = await withTimeout(navigator.bluetooth.getDevices(), 6000, 'getDevices() ne répond pas'); }
-  catch (e) { fail('getDevices', e); setStatus('✖ getDevices a échoué ou ne répond pas : utilise « Débrider le vélo ».', 'koline'); return; }
-  log('getDevices() a renvoyé ' + list.length + ' appareil(s) : ' + (list.map(d => (d.name || '?') + ' ' + d.id).join(' ; ') || 'aucun'), 'info');
-  const d = list.find(x => (x.name || '').startsWith('Fiido'));
-  if (!d) {
-    log('Aucun vélo Fiido déjà autorisé pour cette page. Fais d\'abord une sélection avec « Débrider le vélo ».', 'warn');
-    setStatus('✖ Aucun vélo mémorisé : utilise d\'abord « Débrider le vélo ».', 'koline');
-    return;
-  }
-  if (typeof d.watchAdvertisements === 'function') {
-    log('watchAdvertisements() disponible : attente d\'une annonce du vélo (8 s max)...', 'info');
-    try {
-      await new Promise((res, rej) => {
-        const t = setTimeout(() => rej(new Error('aucune annonce reçue en 8 s')), 8000);
-        d.addEventListener('advertisementreceived', () => { clearTimeout(t); res(); }, { once: true });
-        d.watchAdvertisements().catch(e => { clearTimeout(t); rej(e); });
-      });
-      log('Annonce du vélo reçue.', 'ok');
-    } catch (e) { log('watchAdvertisements : ' + (e && e.message ? e.message : e), 'warn'); }
-  } else log('watchAdvertisements() absent dans ce Bluefy : connexion directe, avec nouvelles tentatives.', 'info');
-  $('chkAuto').checked = true;
-  await afterPick(d);
-}
-$('btnRe').addEventListener('click', reconnectKnown);
-// Avec ?auto=1 dans l'adresse, la reconnexion se lance dès l'ouverture de la page.
-if (new URLSearchParams(location.search).get('auto') === '1') setTimeout(reconnectKnown, 600);
-
-// Démarrage
-log('Page v10 chargée. Page sécurisée : ' + window.isSecureContext + ' | Web Bluetooth : ' + !!navigator.bluetooth, 'info');
-log('Navigateur : ' + navigator.userAgent, 'dim');
-if (prevLog) log('Un rapport de la session précédente est disponible (bouton en bas).', 'dim');
-renderSummary();
 </script>
 </body>
 </html>
