@@ -12,6 +12,7 @@ if (!navigator.bluetooth) document.write('<script src="https://ioswebble.com/web
   body { font-family: -apple-system, sans-serif; background: #111; color: #eee; margin: 0; padding: 16px; }
   h1 { font-size: 1.3rem; margin: 0 0 12px; }
   #go { width: 100%; padding: 28px; font-size: 1.4rem; font-weight: 700; border: 0; border-radius: 14px; background: #2e7d4f; color: #fff; }
+  #re { width: 100%; margin-top: 10px; padding: 14px; font-size: 1rem; border: 0; border-radius: 12px; background: #2c2c2e; color: #eee; }
   #go:disabled { opacity: .5; }
   #st { margin: 14px 0; padding: 14px; border-radius: 10px; background: #1c1c1e; font-size: 1.05rem; }
   .ok { color: #6fdc8c; } .ko { color: #ff6b6b; } .wait { color: #e0b84a; }
@@ -22,6 +23,7 @@ if (!navigator.bluetooth) document.write('<script src="https://ioswebble.com/web
 <body>
 <h1>Fiido T2</h1>
 <button id="go">Débrider le vélo</button>
+<button id="re">Reconnexion sans liste (test)</button>
 <div id="st">Vélo allumé, app Fiido fermée. Appuie, puis choisis « Fiido_T2 ».</div>
 <div id="log"></div>
 <button id="cp">Copier le journal</button>
@@ -58,9 +60,23 @@ async function run() {
     // Bluefy refuse les listes de services (code 2) ; l'extension Safari en a besoin.
     const opts = /Bluefy/.test(navigator.userAgent) ? { acceptAllDevices: true } : { acceptAllDevices: true, optionalServices: [SVC, SVC2] };
     const dev = await navigator.bluetooth.requestDevice(opts);
+    await sendTo(dev);
+  } catch (e) {
+    log('✖ ' + err(e));
+    status('✖ ' + err(e), 'ko');
+  }
+  $('go').disabled = false;
+}
+
+async function sendTo(dev) {
     log('Appareil : ' + (dev.name || '?'));
     status('Connexion…', 'wait');
-    const srv = await dev.gatt.connect();
+    let srv, last;
+    for (let n = 1; n <= 3 && !srv; n++) {
+      try { srv = await dev.gatt.connect(); }
+      catch (e) { last = e; log('Connexion tentative ' + n + '/3 : ' + err(e)); await sleep(1500); }
+    }
+    if (!srv) throw last;
     const svcs = await srv.getPrimaryServices();
     let wc = null, nc = null;
     for (const s of svcs) {
@@ -81,12 +97,38 @@ async function run() {
     status('Envoi B…', 'wait');
     await write(wc, B, 'B');
     status('✔ Envoyé. Essaie l\'accélérateur.', 'ok');
+}
+
+// Reconnexion sans liste : à tester (d'après la doc de beacio, l'appairage ne persiste pas d'une page à l'autre).
+async function reconnect() {
+  $('go').disabled = true; $('re').disabled = true;
+  try {
+    if (!navigator.bluetooth) throw new Error('Web Bluetooth indisponible.');
+    if (!navigator.bluetooth.getDevices) throw new Error('getDevices() absent : reconnexion sans liste impossible ici.');
+    status('Recherche d\'un vélo déjà autorisé…', 'wait');
+    const list = await Promise.race([navigator.bluetooth.getDevices(), sleep(6000).then(() => { throw new Error('getDevices() ne répond pas (6 s)'); })]);
+    log('getDevices() : ' + list.length + ' appareil(s) ' + list.map(d => d.name || '?').join(', '));
+    const dev = list.find(d => (d.name || '').startsWith('Fiido'));
+    if (!dev) throw new Error('Aucun vélo mémorisé : utilise d\'abord « Débrider le vélo ».');
+    if (dev.watchAdvertisements) {
+      try {
+        await new Promise((res, rej) => {
+          const t = setTimeout(() => rej(new Error('aucune annonce en 8 s')), 8000);
+          dev.addEventListener('advertisementreceived', () => { clearTimeout(t); res(); }, { once: true });
+          dev.watchAdvertisements().catch(e => { clearTimeout(t); rej(e); });
+        });
+        log('Annonce du vélo reçue.');
+      } catch (e) { log('watchAdvertisements : ' + err(e)); }
+    } else log('watchAdvertisements() absent.');
+    await sendTo(dev);
   } catch (e) {
     log('✖ ' + err(e));
     status('✖ ' + err(e), 'ko');
   }
-  $('go').disabled = false;
+  $('go').disabled = false; $('re').disabled = false;
 }
+$('re').addEventListener('click', reconnect);
+if (new URLSearchParams(location.search).get('auto') === '1') setTimeout(reconnect, 600);
 $('go').addEventListener('click', run);
 $('cp').addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(text); $('cp').textContent = 'Copié ✔'; }
